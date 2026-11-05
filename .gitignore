@@ -1,0 +1,8 @@
+build/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+.DS_Store
+
+# Local build and signing script; tracked once a proper certificate is in use
+scripts/build.sh

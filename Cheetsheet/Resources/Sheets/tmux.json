@@ -1,0 +1,71 @@
+{
+  "id": "tmux",
+  "name": "tmux",
+  "symbol": "terminal",
+  "prefix": "⌃b",
+  "match": { "apps": ["@terminals"], "title": "\\btmux\\b" },
+  "layer": 1,
+  "sections": [
+    {
+      "title": "Sessions",
+      "entries": [
+        { "action": "detach-client", "keys": ["{prefix}", "d"], "description": "Detach from session" },
+        { "action": "choose-tree -Zs", "keys": ["{prefix}", "s"], "description": "Choose a session" },
+        { "action": "rename-session", "keys": ["{prefix}", "$"], "description": "Rename session" },
+        { "action": "switch-client -p", "keys": ["{prefix}", "("], "description": "Previous session" },
+        { "action": "switch-client -n", "keys": ["{prefix}", ")"], "description": "Next session" },
+        { "action": "switch-client -l", "keys": ["{prefix}", "L"], "description": "Last used session" }
+      ]
+    },
+    {
+      "title": "Windows",
+      "entries": [
+        { "action": "new-window", "keys": ["{prefix}", "c"], "description": "New window" },
+        { "action": "rename-window", "keys": ["{prefix}", ","], "description": "Rename window" },
+        { "action": "kill-window", "keys": ["{prefix}", "&"], "description": "Close window", "note": "Asks for confirmation" },
+        { "action": "next-window", "keys": ["{prefix}", "n"], "description": "Next window" },
+        { "action": "previous-window", "keys": ["{prefix}", "p"], "description": "Previous window" },
+        { "action": "last-window", "keys": ["{prefix}", "l"], "description": "Last used window" },
+        { "action": "select-window -t", "keys": ["{prefix}", "0–9"], "description": "Go to window by number" },
+        { "action": "choose-tree -Zw", "keys": ["{prefix}", "w"], "description": "Choose a window" },
+        { "action": "find-window", "keys": ["{prefix}", "f"], "description": "Find window by name" }
+      ]
+    },
+    {
+      "title": "Panes",
+      "entries": [
+        { "action": "split-window -h", "keys": ["{prefix}", "%"], "description": "Split left and right" },
+        { "action": "split-window", "keys": ["{prefix}", "\""], "description": "Split top and bottom" },
+        { "action": "select-pane", "keys": ["{prefix}", "←↓↑→"], "description": "Move to pane in direction" },
+        { "action": "select-pane -t :.+", "keys": ["{prefix}", "o"], "description": "Next pane" },
+        { "action": "last-pane", "keys": ["{prefix}", ";"], "description": "Last used pane" },
+        { "action": "resize-pane -Z", "keys": ["{prefix}", "z"], "description": "Zoom pane on or off" },
+        { "action": "resize-pane", "keys": ["{prefix}", "⌃←↓↑→"], "description": "Resize pane", "note": "Keep holding ⌃ to repeat" },
+        { "action": "kill-pane", "keys": ["{prefix}", "x"], "description": "Close pane", "note": "Asks for confirmation" },
+        { "action": "swap-pane -U", "keys": ["{prefix}", "{"], "description": "Swap with previous pane" },
+        { "action": "swap-pane -D", "keys": ["{prefix}", "}"], "description": "Swap with next pane" },
+        { "action": "break-pane", "keys": ["{prefix}", "!"], "description": "Move pane to its own window" },
+        { "action": "display-panes", "keys": ["{prefix}", "q"], "description": "Show pane numbers" },
+        { "action": "next-layout", "keys": ["{prefix}", "space"], "description": "Cycle pane layouts" }
+      ]
+    },
+    {
+      "title": "Copy mode",
+      "entries": [
+        { "action": "copy-mode", "keys": ["{prefix}", "["], "description": "Enter copy mode to scroll" },
+        { "action": "copy-mode -u", "keys": ["{prefix}", "pgup"], "description": "Scroll up a page" },
+        { "action": "paste-buffer", "keys": ["{prefix}", "]"], "description": "Paste last copied text" },
+        { "action": "copy-mode:cancel", "keys": ["q"], "description": "Leave copy mode" }
+      ]
+    },
+    {
+      "title": "Other",
+      "entries": [
+        { "action": "command-prompt", "keys": ["{prefix}", ":"], "description": "Command prompt" },
+        { "action": "list-keys", "keys": ["{prefix}", "?"], "description": "List all key bindings" },
+        { "action": "send-prefix", "keys": ["{prefix}", "{prefix}"], "description": "Send prefix to the program inside" },
+        { "action": "clock-mode", "keys": ["{prefix}", "t"], "description": "Show a clock" }
+      ]
+    }
+  ]
+}

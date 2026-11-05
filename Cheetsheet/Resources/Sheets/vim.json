@@ -1,0 +1,103 @@
+{
+  "id": "vim",
+  "name": "Vim",
+  "symbol": "character.cursor.ibeam",
+  "match": { "apps": ["@terminals"], "title": "\\bn?vim?\\b" },
+  "layer": 2,
+  "sections": [
+    {
+      "title": "Motion",
+      "entries": [
+        { "action": "normal:hjkl", "keys": ["h", "j", "k", "l"], "description": "Left, down, up, right" },
+        { "action": "normal:w", "keys": ["w"], "description": "Next word" },
+        { "action": "normal:b", "keys": ["b"], "description": "Previous word" },
+        { "action": "normal:e", "keys": ["e"], "description": "End of word" },
+        { "action": "normal:0", "keys": ["0"], "description": "Start of line" },
+        { "action": "normal:^", "keys": ["^"], "description": "First non-blank character" },
+        { "action": "normal:$", "keys": ["$"], "description": "End of line" },
+        { "action": "normal:gg", "keys": ["g", "g"], "description": "Top of file" },
+        { "action": "normal:G", "keys": ["G"], "description": "Bottom of file", "note": "Prefix a number to go to that line, e.g. 42G" },
+        { "action": "normal:%", "keys": ["%"], "description": "Matching bracket" },
+        { "action": "normal:f", "keys": ["f", "{char}"], "description": "Jump to next {char} on the line" },
+        { "action": "normal:t", "keys": ["t", "{char}"], "description": "Jump to just before next {char}" },
+        { "action": "normal:;", "keys": [";"], "description": "Repeat last f or t jump" },
+        { "action": "normal:<C-d>", "keys": ["⌃d"], "description": "Half page down" },
+        { "action": "normal:<C-u>", "keys": ["⌃u"], "description": "Half page up" },
+        { "action": "normal:<C-o>", "keys": ["⌃o"], "description": "Back to previous location" }
+      ]
+    },
+    {
+      "title": "Inserting",
+      "entries": [
+        { "action": "normal:i", "keys": ["i"], "description": "Insert before cursor" },
+        { "action": "normal:a", "keys": ["a"], "description": "Insert after cursor" },
+        { "action": "normal:I", "keys": ["I"], "description": "Insert at start of line" },
+        { "action": "normal:A", "keys": ["A"], "description": "Insert at end of line" },
+        { "action": "normal:o", "keys": ["o"], "description": "New line below" },
+        { "action": "normal:O", "keys": ["O"], "description": "New line above" },
+        { "action": "insert:<Esc>", "keys": ["esc"], "description": "Back to normal mode" }
+      ]
+    },
+    {
+      "title": "Editing",
+      "entries": [
+        { "action": "normal:x", "keys": ["x"], "description": "Delete character" },
+        { "action": "normal:dd", "keys": ["d", "d"], "description": "Delete line" },
+        { "action": "normal:D", "keys": ["D"], "description": "Delete to end of line" },
+        { "action": "normal:yy", "keys": ["y", "y"], "description": "Copy (yank) line" },
+        { "action": "normal:p", "keys": ["p"], "description": "Paste after cursor" },
+        { "action": "normal:P", "keys": ["P"], "description": "Paste before cursor" },
+        { "action": "normal:u", "keys": ["u"], "description": "Undo" },
+        { "action": "normal:<C-r>", "keys": ["⌃r"], "description": "Redo" },
+        { "action": "normal:.", "keys": ["."], "description": "Repeat last change" },
+        { "action": "normal:ciw", "keys": ["c", "i", "w"], "description": "Change word under cursor" },
+        { "action": "normal:ci\"", "keys": ["c", "i", "\""], "description": "Change inside quotes", "note": "Works with ( [ { ' too" },
+        { "action": "normal:r", "keys": ["r", "{char}"], "description": "Replace character" },
+        { "action": "normal:J", "keys": ["J"], "description": "Join line below" },
+        { "action": "normal:>>", "keys": [">", ">"], "description": "Indent line" },
+        { "action": "normal:<<", "keys": ["<", "<"], "description": "Outdent line" }
+      ]
+    },
+    {
+      "title": "Visual",
+      "entries": [
+        { "action": "normal:v", "keys": ["v"], "description": "Select characters" },
+        { "action": "normal:V", "keys": ["V"], "description": "Select lines" },
+        { "action": "normal:<C-v>", "keys": ["⌃v"], "description": "Select block" },
+        { "action": "normal:gv", "keys": ["g", "v"], "description": "Reselect last selection" }
+      ]
+    },
+    {
+      "title": "Search",
+      "entries": [
+        { "action": "normal:/", "keys": ["/", "{pattern}"], "description": "Search forward" },
+        { "action": "normal:?", "keys": ["?", "{pattern}"], "description": "Search backward" },
+        { "action": "normal:n", "keys": ["n"], "description": "Next match" },
+        { "action": "normal:N", "keys": ["N"], "description": "Previous match" },
+        { "action": "normal:*", "keys": ["*"], "description": "Search for word under cursor" },
+        { "action": "ex:substitute", "keys": [":%s/old/new/g"], "description": "Replace all in file", "note": "Add c at the end to confirm each one" }
+      ]
+    },
+    {
+      "title": "Windows",
+      "entries": [
+        { "action": "normal:<C-w>s", "keys": ["⌃w", "s"], "description": "Split top and bottom" },
+        { "action": "normal:<C-w>v", "keys": ["⌃w", "v"], "description": "Split left and right" },
+        { "action": "normal:<C-w>w", "keys": ["⌃w", "w"], "description": "Next window" },
+        { "action": "normal:<C-w>hjkl", "keys": ["⌃w", "h j k l"], "description": "Move to window in direction" },
+        { "action": "normal:<C-w>q", "keys": ["⌃w", "q"], "description": "Close window" },
+        { "action": "normal:<C-w>=", "keys": ["⌃w", "="], "description": "Make windows equal size" }
+      ]
+    },
+    {
+      "title": "Files",
+      "entries": [
+        { "action": "ex:w", "keys": [":w"], "description": "Save" },
+        { "action": "ex:q", "keys": [":q"], "description": "Quit" },
+        { "action": "ex:wq", "keys": [":wq"], "description": "Save and quit" },
+        { "action": "ex:q!", "keys": [":q!"], "description": "Quit without saving" },
+        { "action": "ex:e", "keys": [":e {file}"], "description": "Open file" }
+      ]
+    }
+  ]
+}
