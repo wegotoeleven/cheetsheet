@@ -11,18 +11,54 @@ nonisolated struct Cheatsheet: Identifiable, Decodable, Hashable {
     let symbol: String
     /// Prefix key (tmux-style). Entries use the token "{prefix}" in their keys.
     let prefix: String?
-    /// When this sheet applies automatically in the overlay. Nil means never.
-    let match: Match?
-    /// How deeply nested this program usually is: tmux is 1, vim inside it is 2.
+    /// When the overlay shows this sheet. Nil means only in the main window.
+    let show: Show?
+    /// For terminal sheets: how deeply nested the program usually is (tmux 1, vim inside it 2).
     /// The overlay shows the most deeply nested layer first.
     let layer: Int?
     let sections: [Section]
 
-    struct Match: Decodable, Hashable {
-        /// Bundle IDs of apps this sheet applies to. "@terminals" means any known terminal.
-        let apps: [String]?
-        /// Regular expression matched (case-insensitively) against the front window's title.
-        let title: String?
+    /// In JSON, one of:
+    ///   "show": "everywhere"
+    ///   "show": { "apps": ["com.apple.Music"] }        (bundle IDs; "@terminals" = any terminal)
+    ///   "show": { "terminalTitle": "\\btmux\\b" }       (regex matched against a terminal's window title)
+    enum Show: Hashable, Codable {
+        case everywhere
+        case apps([String])
+        case terminalTitle(String)
+
+        private enum Keys: String, CodingKey { case apps, terminalTitle }
+
+        init(from decoder: Decoder) throws {
+            if let word = try? decoder.singleValueContainer().decode(String.self) {
+                guard word == "everywhere" else {
+                    throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath,
+                        debugDescription: "\"show\" should be \"everywhere\", {\"apps\": [...]} or {\"terminalTitle\": \"...\"}"))
+                }
+                self = .everywhere
+                return
+            }
+            let c = try decoder.container(keyedBy: Keys.self)
+            if let apps = try c.decodeIfPresent([String].self, forKey: .apps) {
+                self = .apps(apps)
+            } else {
+                self = .terminalTitle(try c.decode(String.self, forKey: .terminalTitle))
+            }
+        }
+
+        func encode(to encoder: Encoder) throws {
+            switch self {
+            case .everywhere:
+                var c = encoder.singleValueContainer()
+                try c.encode("everywhere")
+            case .apps(let apps):
+                var c = encoder.container(keyedBy: Keys.self)
+                try c.encode(apps, forKey: .apps)
+            case .terminalTitle(let pattern):
+                var c = encoder.container(keyedBy: Keys.self)
+                try c.encode(pattern, forKey: .terminalTitle)
+            }
+        }
     }
 
     struct Section: Identifiable, Decodable, Hashable {
@@ -60,20 +96,21 @@ nonisolated extension Cheatsheet {
         "com.github.wez.wezterm",
     ]
 
-    /// True when this sheet should appear for the given front app and window title.
-    func applies(toBundleID bundleID: String?, windowTitle: String?) -> Bool {
-        guard let match else { return false }
-        if let apps = match.apps {
-            let ids = Set(apps.flatMap { $0 == "@terminals" ? Array(Self.terminalBundleIDs) : [$0] })
-            guard let bundleID, ids.contains(bundleID) else { return false }
-        }
-        if let pattern = match.title {
-            guard let windowTitle,
-                  windowTitle.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
-            else { return false }
-        }
-        return true
+    /// True when this is a terminal sheet (tmux, vim) whose pattern matches the window title.
+    func matchesTerminal(bundleID: String?, windowTitle: String?) -> Bool {
+        guard case .terminalTitle(let pattern) = show,
+              let bundleID, Self.terminalBundleIDs.contains(bundleID),
+              let windowTitle else { return false }
+        return windowTitle.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
     }
+
+    /// True when this sheet is attached to the given app.
+    func attaches(toBundleID bundleID: String?) -> Bool {
+        guard case .apps(let apps) = show, let bundleID else { return false }
+        return apps.contains { $0 == bundleID || ($0 == "@terminals" && Self.terminalBundleIDs.contains(bundleID)) }
+    }
+
+    var showsEverywhere: Bool { show == .everywhere }
 
     /// The sheet's sections in the same shape as menu shortcuts, with the prefix filled in.
     /// With `live`, changed defaults are struck through and the user's own bindings added.
@@ -83,9 +120,10 @@ nonisolated extension Cheatsheet {
 
         var groups = sections.enumerated().map { index, section in
             MenuGroup(id: index, title: section.title, items: section.entries.map { entry in
+                let override = live?.overrides[entry.action]
                 let defaultKeys = caps(entry.keys)
-                // A new prefix alone isn't a change worth striking out (e.g. send-prefix on ⌃a ⌃a).
-                guard let override = live?.overrides[entry.action], override.keys != defaultKeys else {
+                // Unchanged, or only the prefix changed (e.g. send-prefix on ⌃a ⌃a): nothing to strike out.
+                guard let override, override.keys != defaultKeys else {
                     return MenuShortcut(title: entry.description, keys: defaultKeys, note: entry.note)
                 }
                 if override.defaultStillWorks {

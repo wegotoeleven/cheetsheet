@@ -18,10 +18,19 @@ struct ContentView: View {
                     Label("Current app", systemImage: "macwindow")
                         .tag(SidebarItem.currentApp)
                 }
-                Section("Cheatsheets") {
+                Section("Sheets") {
                     ForEach(store.sheets) { sheet in
-                        Label(sheet.name, systemImage: sheet.symbol)
-                            .tag(SidebarItem.sheet(sheet.id))
+                        HStack {
+                            Label(sheet.name, systemImage: sheet.symbol)
+                            Spacer()
+                            if let label = showLabel(for: sheet) {
+                                Text(label)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        .tag(SidebarItem.sheet(sheet.id))
                     }
                 }
             }
@@ -34,6 +43,22 @@ struct ContentView: View {
                 selection = .sheet(first.id)
             }
         }
+    }
+
+    /// When the overlay shows a sheet by itself: "Everywhere", an app's name, or "In terminals".
+    private func showLabel(for sheet: Cheatsheet) -> String? {
+        switch sheet.show {
+        case .everywhere: "Everywhere"
+        case .terminalTitle: "In terminals"
+        case .apps(let ids): ids.map(appName).joined(separator: ", ")
+        case nil: nil
+        }
+    }
+
+    private func appName(_ bundleID: String) -> String {
+        if bundleID == "@terminals" { return "Terminals" }
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return bundleID }
+        return FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
     }
 
     @ViewBuilder

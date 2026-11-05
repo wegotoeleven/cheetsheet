@@ -73,21 +73,28 @@ final class OverlayController {
         panel.orderOut(nil)
     }
 
-    /// Builds the layers to show: matching sheets innermost first (vim, then tmux),
-    /// then the app's own menus. Also fills in the breadcrumb, outermost first.
+    /// Builds the layers to show, in order: programs spotted in a terminal's title (vim, then
+    /// tmux), the app itself (menus plus config bindings), sheets attached to the app, then
+    /// sheets shown everywhere. Also fills in the breadcrumb, outermost first.
     private func layers(app: NSRunningApplication?, appName: String, menus: [MenuGroup],
                         title: String?, breadcrumb: inout [String]) -> [OverlayLayer] {
-        let matched = store.sheets
-            .filter { $0.applies(toBundleID: app?.bundleIdentifier, windowTitle: title) }
-            .sorted { ($0.layer ?? 0) > ($1.layer ?? 0) }
-
-        var layers = matched.map { OverlayLayer(name: $0.name, groups: $0.shortcutGroups(live: store.live[$0.id])) }
-        breadcrumb += matched.reversed().filter { $0.match?.title != nil }.map(\.name)
-
-        let hideMenus = AppSettings.hideHostMenus && matched.contains { $0.match?.title != nil }
-        if !hideMenus {
-            layers.append(OverlayLayer(name: appName, groups: menus))
+        let bundleID = app?.bundleIdentifier
+        func layer(_ sheet: Cheatsheet) -> OverlayLayer {
+            OverlayLayer(name: sheet.name, groups: sheet.shortcutGroups(live: store.live[sheet.id]))
         }
+
+        let inner = store.sheets
+            .filter { $0.matchesTerminal(bundleID: bundleID, windowTitle: title) }
+            .sorted { ($0.layer ?? 0) > ($1.layer ?? 0) }
+        var layers = inner.map(layer)
+        breadcrumb += inner.reversed().map(\.name)
+
+        if !(AppSettings.hideHostMenus && !inner.isEmpty) {
+            let config = bundleID.flatMap { store.appConfigs[$0] }
+            layers.append(OverlayLayer(name: appName, groups: config?.merged(into: menus) ?? menus))
+        }
+        layers += store.sheets.filter { $0.attaches(toBundleID: bundleID) }.map(layer)
+        layers += store.sheets.filter(\.showsEverywhere).map(layer)
         return layers
     }
 

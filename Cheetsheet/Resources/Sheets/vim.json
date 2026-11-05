@@ -2,7 +2,7 @@
   "id": "vim",
   "name": "Vim",
   "symbol": "character.cursor.ibeam",
-  "match": { "apps": ["@terminals"], "title": "\\bn?vim?\\b" },
+  "show": { "terminalTitle": "\\bn?vim?\\b" },
   "layer": 2,
   "sections": [
     {

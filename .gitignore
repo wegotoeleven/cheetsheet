@@ -4,5 +4,8 @@ xcuserdata/
 *.xcuserstate
 .DS_Store
 
-# Local build and signing script; tracked once a proper certificate is in use
-scripts/build.sh
+# Local build and signing scripts; tracked once a proper certificate is in use
+scripts/
+
+# Example and test sheets, kept locally
+Examples/

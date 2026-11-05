@@ -3,7 +3,7 @@
   "name": "tmux",
   "symbol": "terminal",
   "prefix": "⌃b",
-  "match": { "apps": ["@terminals"], "title": "\\btmux\\b" },
+  "show": { "terminalTitle": "\\btmux\\b" },
   "layer": 1,
   "sections": [
     {

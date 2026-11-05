@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 
 /// The modifier key you hold to bring up the overlay.
-/// `String` raw values let it be saved in UserDefaults via @AppStorage.
-enum TriggerKey: String, CaseIterable, Identifiable {
+/// Saved in config.json by its raw value, e.g. "command".
+nonisolated enum TriggerKey: String, CaseIterable, Identifiable, Codable {
     case command, option, control, shift
 
     var id: Self { self }
@@ -36,20 +36,14 @@ enum TriggerKey: String, CaseIterable, Identifiable {
     }
 }
 
-/// Reads settings outside SwiftUI views. Keys must match the @AppStorage keys below.
+/// Shortcuts for reading settings outside SwiftUI views. The values live in config.json.
 enum AppSettings {
-    static let triggerKeyName = "triggerKey"
-    static let holdDelayName = "holdDelay"
-    static let defaultHoldDelay = 0.8
-    static let showMenuBarIconName = "showMenuBarIcon"
-    static let hideHostMenusName = "hideHostMenus"
+    private static var config: ConfigFile { SettingsStore.shared.config }
 
-    /// Hide the terminal's own menus when tmux or vim is detected inside it.
-    static var hideHostMenus: Bool { UserDefaults.standard.bool(forKey: hideHostMenusName) }
-
-    static var showMenuBarIcon: Bool {
-        UserDefaults.standard.object(forKey: showMenuBarIconName) as? Bool ?? true
-    }
+    static var trigger: TriggerKey { config.trigger }
+    static var holdDelay: Double { config.holdDelay }
+    static var showMenuBarIcon: Bool { config.showMenuBarIcon }
+    static var hideHostMenus: Bool { config.hideTerminalShortcuts }
 
     /// How many of Cheetsheet's windows (main, Settings) are open right now.
     private static var openWindows = 0
@@ -71,22 +65,12 @@ enum AppSettings {
         if showDock { DispatchQueue.main.async { NSApp.activate() } }
     }
 
-    static var trigger: TriggerKey {
-        UserDefaults.standard.string(forKey: triggerKeyName).flatMap(TriggerKey.init(rawValue:)) ?? .command
-    }
-
-    static var holdDelay: Double {
-        let value = UserDefaults.standard.double(forKey: holdDelayName)  // 0 when never set
-        return value > 0 ? value : defaultHoldDelay
-    }
 }
 
 struct SettingsView: View {
-    // @AppStorage reads and writes UserDefaults and redraws the view on change.
-    @AppStorage(AppSettings.triggerKeyName) private var trigger: TriggerKey = .command
-    @AppStorage(AppSettings.holdDelayName) private var holdDelay: Double = AppSettings.defaultHoldDelay
-    @AppStorage(AppSettings.showMenuBarIconName) private var showMenuBarIcon = true
-    @AppStorage(AppSettings.hideHostMenusName) private var hideHostMenus = false
+    // @Bindable lets controls bind straight to the store's settings; changes save to config.json.
+    @Bindable private var settings = SettingsStore.shared
+    @Environment(SheetStore.self) private var sheets
     @State private var configStatuses: [TerminalConfig.Status] = []
     @State private var pendingAppend: TerminalConfig.Status?
     @State private var appendError: String?
@@ -94,7 +78,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Show in menu bar", isOn: $showMenuBarIcon)
+                Toggle("Show in menu bar", isOn: $settings.config.showMenuBarIcon)
             } header: {
                 Text("App")
             } footer: {
@@ -103,15 +87,15 @@ struct SettingsView: View {
             }
 
             Section {
-                Picker("Hold to show", selection: $trigger) {
+                Picker("Hold to show", selection: $settings.config.trigger) {
                     ForEach(TriggerKey.allCases) { key in
                         Text("\(key.symbol)  \(key.name)").tag(key)
                     }
                 }
                 LabeledContent("Hold for") {
                     HStack {
-                        Slider(value: $holdDelay, in: 0.2...2.0, step: 0.1)
-                        Text(holdDelay, format: .number.precision(.fractionLength(1)))
+                        Slider(value: $settings.config.holdDelay, in: 0.2...2.0, step: 0.1)
+                        Text(settings.config.holdDelay, format: .number.precision(.fractionLength(1)))
                             .monospacedDigit()
                             .frame(width: 28, alignment: .trailing)
                         Text("s").foregroundStyle(.secondary)
@@ -125,7 +109,27 @@ struct SettingsView: View {
             }
 
             Section {
-                Toggle("Hide the terminal's own menus when tmux or vim is detected", isOn: $hideHostMenus)
+                LabeledContent("Folder") {
+                    HStack {
+                        Text(ConfigFolder.tildePath(ConfigFolder.url)).textSelection(.enabled)
+                        Button("Show in Finder") { NSWorkspace.shared.open(ConfigFolder.url) }
+                    }
+                }
+                if let error = settings.error {
+                    Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
+                }
+                ForEach(sheets.loadErrors, id: \.self) { error in
+                    Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
+                }
+            } header: {
+                Text("Files")
+            } footer: {
+                Text("Settings are saved in config.json. Put your own cheatsheets in the sheets folder; a sheet with the same id as a built-in one replaces it. Both can live in your dotfiles, and edits made elsewhere are picked up straight away.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                Toggle("Hide the terminal's own shortcuts when tmux or vim is detected", isOn: $settings.config.hideTerminalShortcuts)
                 ForEach(configStatuses, id: \.config.id) { status in
                     configRow(status)
                 }

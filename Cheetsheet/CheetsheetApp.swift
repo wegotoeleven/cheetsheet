@@ -7,7 +7,7 @@ struct CheetsheetApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     // @State keeps this object alive for the app's whole lifetime.
     @State private var tracker = AppTracker()
-    @AppStorage(AppSettings.showMenuBarIconName) private var showMenuBarIcon = true
+    @Bindable private var settings = SettingsStore.shared
 
     var body: some Scene {
         Window("Cheetsheet", id: "main") {
@@ -21,7 +21,7 @@ struct CheetsheetApp: App {
         }
         .defaultSize(width: 1000, height: 680)
 
-        MenuBarExtra(isInserted: $showMenuBarIcon) {
+        MenuBarExtra(isInserted: $settings.config.showMenuBarIcon) {
             MenuBarMenu()
         } label: {
             Image(nsImage: menuBarIcon)
@@ -29,6 +29,7 @@ struct CheetsheetApp: App {
 
         Settings {
             SettingsView()
+                .environment(appDelegate.store)
         }
     }
 }
@@ -53,11 +54,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Give the main window a moment to open first, so the Dock icon doesn't
         // vanish and reappear during launch.
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { AppSettings.applyDockIconPolicy() }
-        // The menu bar icon can be turned off outside Settings, by ⌘-dragging it out of the
-        // menu bar. Any settings change re-checks the Dock icon; it's a no-op when nothing changed.
-        NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { _ in
-            MainActor.assumeIsolated { AppSettings.applyDockIconPolicy() }
-        }
+        // Settings changes (including ⌘-dragging the menu bar icon away) re-check the Dock
+        // icon in SettingsStore, so nothing more is needed here.
         if !Permissions.isTrusted { Permissions.prompt() }
         holdMonitor.onHold = { [weak self] in self?.overlay.show() }
         holdMonitor.onRelease = { [weak self] in self?.overlay.hide() }
