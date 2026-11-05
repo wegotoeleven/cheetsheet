@@ -78,6 +78,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section {
+                LaunchAtLoginToggle()
                 Toggle("Show in menu bar", isOn: $settings.config.showMenuBarIcon)
             } header: {
                 Text("App")

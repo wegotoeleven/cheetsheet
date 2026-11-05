@@ -9,7 +9,7 @@ import Observation
 final class SheetStore {
     private(set) var sheets: [Cheatsheet] = []
     private(set) var loadErrors: [String] = []
-    /// The user's real bindings for sheets that can read them (tmux), keyed by sheet ID.
+    /// The user's real bindings for sheets that can read them (tmux, vim), keyed by sheet ID.
     private(set) var live: [String: LiveBindings] = [:]
     /// Bindings from app configs (Ghostty), keyed by bundle ID, added to those apps' menus.
     private(set) var appConfigs: [String: ConfigBindings] = [:]
@@ -73,15 +73,17 @@ final class SheetStore {
     func refreshLiveBindings() async {
         if let liveRefresh { return await liveRefresh.value }
         guard Date().timeIntervalSince(lastLiveRefresh) > 5 else { return }
-        let tmux = sheet(id: "tmux")
+        let tmux = sheet(id: "tmux"), vim = sheet(id: "vim")
         let task = Task {
             // Task.detached runs the programs off the main thread so the UI never waits on them;
             // `async let` runs tmux and the app configs at the same time.
             async let tmuxBindings = Task.detached { tmux.flatMap(TmuxBindings.load) }.value
+            async let vimBindings = Task.detached { vim.flatMap(VimBindings.load) }.value
             async let configs = Task.detached {
                 AppConfigSources.readers.compactMapValues { $0() }
             }.value
             live["tmux"] = await tmuxBindings
+            live["vim"] = await vimBindings
             appConfigs = await configs
             lastLiveRefresh = Date()
         }
