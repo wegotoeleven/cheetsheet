@@ -36,7 +36,7 @@ final class ModifierHoldMonitor {
         if event.type == .flagsChanged {
             let flags = event.modifierFlags.intersection([.command, .option, .control, .shift])
             if flags == AppSettings.trigger.flags {
-                if holdTimer == nil, !isShowing, !spoiled { startTimer() }
+                if holdTimer == nil, !isShowing, !spoiled, !KeyRecorder.shared.isRecording { startTimer() }
             } else {
                 if flags.isEmpty { spoiled = false }
                 endHold()

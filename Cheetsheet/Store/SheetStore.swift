@@ -17,8 +17,11 @@ final class SheetStore {
     @ObservationIgnored private var lastLiveRefresh = Date.distantPast
     @ObservationIgnored private var liveRefresh: Task<Void, Never>?
 
-    /// IDs of sheets that came from your folder rather than the app.
-    private(set) var userSheetIDs: Set<String> = []
+    /// The file each of your sheets came from, by sheet ID.
+    private(set) var userSheetFiles: [String: URL] = [:]
+    /// IDs of the sheets that come with the app, whether or not yours replaces them.
+    private(set) var builtInIDs: Set<String> = []
+    var userSheetIDs: Set<String> { Set(userSheetFiles.keys) }
     @ObservationIgnored private var watcher: FolderWatcher?
 
     init() {
@@ -31,26 +34,36 @@ final class SheetStore {
     /// Reads the built-in sheets, then every .json file in your sheets folder.
     func loadSheets() {
         var errors: [String] = []
-        func load(_ urls: [URL]) -> [Cheatsheet] {
+        func load(_ urls: [URL]) -> [(sheet: Cheatsheet, url: URL)] {
             urls.compactMap { url in
                 do {
-                    return try JSONDecoder().decode(Cheatsheet.self, from: Data(contentsOf: url))
+                    return (try JSONDecoder().decode(Cheatsheet.self, from: Data(contentsOf: url)), url)
                 } catch {
                     errors.append("\(url.lastPathComponent): \(SettingsStore.describe(error))")
                     return nil
                 }
             }
         }
-        let builtIn = load(Bundle.main.urls(forResourcesWithExtension: "json", subdirectory: nil) ?? [])
+        let builtIn = load(Bundle.main.urls(forResourcesWithExtension: "json", subdirectory: nil) ?? []).map(\.sheet)
         let userFiles = (try? FileManager.default.contentsOfDirectory(at: ConfigFolder.sheetsFolder,
                                                                       includingPropertiesForKeys: nil)) ?? []
-        let yours = load(userFiles.filter { $0.pathExtension == "json" })
+        let yours = load(userFiles.filter { $0.pathExtension == "json" }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent })
 
         // Yours win over built-in sheets with the same id.
         var byID = Dictionary(builtIn.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        for sheet in yours { byID[sheet.id] = sheet }
+        var files: [String: URL] = [:]
+        for (sheet, url) in yours {
+            if files[sheet.id] != nil {
+                errors.append("\(url.lastPathComponent): another file already uses the id \"\(sheet.id)\", so this one is ignored")
+                continue
+            }
+            byID[sheet.id] = sheet
+            files[sheet.id] = url
+        }
         sheets = byID.values.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        userSheetIDs = Set(yours.map(\.id))
+        userSheetFiles = files
+        builtInIDs = Set(builtIn.map(\.id))
         loadErrors = errors
         lastLiveRefresh = .distantPast  // a changed tmux sheet should be re-checked
     }
@@ -79,5 +92,44 @@ final class SheetStore {
 
     func sheet(id: String) -> Cheatsheet? {
         sheets.first { $0.id == id }
+    }
+
+    // MARK: - Saving from the sheet editor
+
+    /// Writes a sheet to your folder: over its own file if it has one, otherwise to a new
+    /// `<id>.json`. Saving a built-in sheet this way makes your copy, which replaces it.
+    func save(_ sheet: Cheatsheet) throws {
+        let encoder = JSONEncoder()
+        // Sorted keys, so saving the same sheet twice gives the same file (tidy dotfile diffs).
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        let data = try encoder.encode(sheet)
+        try ConfigFolder.write(data, to: userSheetFiles[sheet.id] ?? newFileURL(for: sheet.id))
+        loadSheets()
+    }
+
+    /// Moves your file for a sheet to the Bin. For a copy of a built-in sheet, the built-in
+    /// one comes back.
+    func deleteUserSheet(id: String) throws {
+        guard let url = userSheetFiles[id] else { return }
+        try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+        loadSheets()
+    }
+
+    /// An id no other sheet uses, made from a name: "My Keys" → "my-keys", then "my-keys-2".
+    func unusedID(for name: String) -> String {
+        let base = name.slug.isEmpty ? "sheet" : name.slug
+        let taken = builtInIDs.union(userSheetIDs)
+        var id = base, n = 2
+        while taken.contains(id) { id = "\(base)-\(n)"; n += 1 }
+        return id
+    }
+
+    /// `<id>.json` in your folder, numbered if a file of that name already holds another sheet.
+    private func newFileURL(for id: String) -> URL {
+        var url = ConfigFolder.sheetsFolder.appending(path: "\(id).json"), n = 2
+        while FileManager.default.fileExists(atPath: url.path) {
+            url = ConfigFolder.sheetsFolder.appending(path: "\(id)-\(n).json"); n += 1
+        }
+        return url
     }
 }

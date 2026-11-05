@@ -10,6 +10,8 @@ enum SidebarItem: Hashable {
 struct ContentView: View {
     @Environment(SheetStore.self) private var store
     @State private var selection: SidebarItem?
+    /// The sheet open in the editor, if any.
+    @State private var editing: SheetDraft?
 
     var body: some View {
         NavigationSplitView {
@@ -34,15 +36,46 @@ struct ContentView: View {
                     }
                 }
             }
+            // Double-clicking a sheet (the "primary action") opens it in the editor;
+            // right-clicking offers the same.
+            .contextMenu(forSelectionType: SidebarItem.self) { items in
+                if let sheet = editableSheet(items) {
+                    Button("Edit…") { editing = SheetDraft(sheet) }
+                }
+            } primaryAction: { items in
+                if let sheet = editableSheet(items) { editing = SheetDraft(sheet) }
+            }
             .navigationSplitViewColumnWidth(min: 180, ideal: 200)
+            .toolbar {
+                Button("New Sheet", systemImage: "plus") { editing = SheetDraft() }
+                    .keyboardShortcut("n", modifiers: .command)
+                    .help("Make a new sheet (⌘N)")
+            }
         } detail: {
             detail
+        }
+        .sheet(item: $editing) { draft in
+            SheetEditorView(draft: draft) { savedID in
+                // Show what was just saved; after a delete, fall back to the first sheet.
+                if let savedID {
+                    selection = .sheet(savedID)
+                } else {
+                    selection = store.sheets.first.map { .sheet($0.id) }
+                }
+            }
+            .environment(store)
         }
         .onAppear {
             if selection == nil, let first = store.sheets.first {
                 selection = .sheet(first.id)
             }
         }
+    }
+
+    /// The sheet a sidebar click was on; nil for "Current app", which can't be edited.
+    private func editableSheet(_ items: Set<SidebarItem>) -> Cheatsheet? {
+        guard items.count == 1, case .sheet(let id) = items.first else { return nil }
+        return store.sheet(id: id)
     }
 
     /// When the overlay shows a sheet by itself: "Everywhere", an app's name, or "In terminals".

@@ -1,10 +1,10 @@
 import Foundation
 
-/// One cheatsheet, decoded from a JSON file.
+/// One cheatsheet, read from (and, by the sheet editor, saved to) a JSON file.
 ///
 /// `Decodable` lets `JSONDecoder` build this struct straight from JSON whose keys
 /// match the property names, similar to a Python dataclass loaded from a dict.
-nonisolated struct Cheatsheet: Identifiable, Decodable, Hashable {
+nonisolated struct Cheatsheet: Identifiable, Codable, Hashable {
     let id: String
     let name: String
     /// SF Symbol name shown in the sidebar.
@@ -61,13 +61,13 @@ nonisolated struct Cheatsheet: Identifiable, Decodable, Hashable {
         }
     }
 
-    struct Section: Identifiable, Decodable, Hashable {
+    struct Section: Identifiable, Codable, Hashable {
         var id: String { title }
         let title: String
         let entries: [Entry]
     }
 
-    struct Entry: Identifiable, Decodable, Hashable {
+    struct Entry: Identifiable, Codable, Hashable {
         var id: String { action }
         /// Stable identifier for what the binding does (e.g. tmux's `split-window -h`).
         /// Later used to match against live bindings, so it must be unique per sheet.
