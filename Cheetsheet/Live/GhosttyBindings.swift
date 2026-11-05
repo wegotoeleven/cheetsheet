@@ -12,14 +12,25 @@ nonisolated enum GhosttyBindings {
         let action: String
     }
 
+    /// Ghostty's config files, so it's only re-read when one of them changes.
+    private static var configFiles: [URL] {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        return [".config/ghostty/config", ".config/ghostty/config.ghostty",
+                "Library/Application Support/com.mitchellh.ghostty/config",
+                "Library/Application Support/com.mitchellh.ghostty/config.ghostty"].map { home.appending(path: $0) }
+    }
+    private static let cache = ConfigCache<ConfigBindings>()
+
     /// Returns nil when Ghostty isn't installed or its command line tool fails.
     @Sendable static func load() -> ConfigBindings? {
-        guard let ghostty = executable(),
-              let defaults = run(ghostty, ["+list-keybinds", "--default"]),
-              let user = run(ghostty, ["+list-keybinds"]),
-              !parse(user).isEmpty
-        else { return nil }
-        return resolve(defaults: defaults, user: user)
+        guard let ghostty = executable() else { return nil }
+        return cache.value(for: configFiles + [URL(fileURLWithPath: ghostty)]) {
+            guard let defaults = ProcessRunner.run(ghostty, ["+list-keybinds", "--default"]),
+                  let user = ProcessRunner.run(ghostty, ["+list-keybinds"]),
+                  !parse(user).isEmpty
+            else { return nil }
+            return resolve(defaults: defaults, user: user)
+        }
     }
 
     /// The comparison itself, separate from running Ghostty so it can be tested with saved output.
@@ -144,19 +155,5 @@ nonisolated enum GhosttyBindings {
         else { return nil }
         let path = app.appending(path: "Contents/MacOS/ghostty").path
         return FileManager.default.isExecutableFile(atPath: path) ? path : nil
-    }
-
-    private static func run(_ path: String, _ arguments: [String]) -> String? {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: path)
-        process.arguments = arguments
-        let output = Pipe()
-        process.standardOutput = output
-        process.standardError = FileHandle.nullDevice
-        do { try process.run() } catch { return nil }
-        let data = output.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else { return nil }
-        return String(decoding: data, as: UTF8.self)
     }
 }

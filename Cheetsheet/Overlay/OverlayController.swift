@@ -44,28 +44,48 @@ final class OverlayController {
 
         loadTask?.cancel()
         loadTask = Task {
-            // Re-check tmux's bindings at the same time (throttled, so usually instant).
+            // Re-check live bindings (tmux, vim, app configs) alongside reading the menus, but
+            // don't wait for it: the overlay shows straight away with what's already known.
+            let generation = store.liveGeneration
             async let liveRefresh: Void = store.refreshLiveBindings()
             // Read the window title (and menus, if not cached) off the main thread.
             let (menus, title) = await Task.detached {
                 (cached ?? MenuReader.shortcuts(forPID: pid), MenuReader.focusedWindowTitle(forPID: pid))
             }.value
-            await liveRefresh
             guard !Task.isCancelled else { return }
-            cache[pid] = (menus, Date())
+            if cached == nil { remember(menus, for: pid) }
+            display(finished(content, app: app, appName: appName, menus: menus, title: title), in: visible)
 
-            var breadcrumb = [appName]
-            let resolved = layers(app: app, appName: appName, menus: menus, title: title, breadcrumb: &breadcrumb)
-            var finished = content
-            finished.breadcrumb = breadcrumb
-            finished.state = .layers(resolved)
-            // In a terminal where nothing was detected, show the title we read so it's clear why.
-            let isTerminal = app?.bundleIdentifier.map(Cheatsheet.terminalBundleIDs.contains) ?? false
-            if isTerminal, breadcrumb.count == 1 {
-                finished.hint = "Nothing detected in the window title “\(title ?? "")”. Settings → Terminals can fix this."
-            }
-            display(finished, in: visible)
+            // Redraw if the refresh brought anything new.
+            await liveRefresh
+            guard !Task.isCancelled, store.liveGeneration != generation else { return }
+            display(finished(content, app: app, appName: appName, menus: menus, title: title), in: visible)
         }
+    }
+
+    /// The overlay's content once the menus and window title are known.
+    private func finished(_ content: OverlayContent, app: NSRunningApplication?, appName: String,
+                          menus: [MenuGroup], title: String?) -> OverlayContent {
+        var breadcrumb = [appName]
+        let resolved = layers(app: app, appName: appName, menus: menus, title: title, breadcrumb: &breadcrumb)
+        var finished = content
+        finished.breadcrumb = breadcrumb
+        finished.state = .layers(resolved)
+        // In a terminal where nothing was detected, show the title we read so it's clear why.
+        let isTerminal = app?.bundleIdentifier.map(Cheatsheet.terminalBundleIDs.contains) ?? false
+        if isTerminal, breadcrumb.count == 1 {
+            finished.hint = "Nothing detected in the window title “\(title ?? "")”. Settings → Terminals can fix this."
+        }
+        return finished
+    }
+
+    /// Caches an app's menus. An empty result usually means the app was still starting up
+    /// or didn't answer in time, so it isn't kept. Expired entries, including those for apps
+    /// that have quit, are dropped.
+    private func remember(_ menus: [MenuGroup], for pid: pid_t) {
+        let now = Date()
+        cache = cache.filter { now.timeIntervalSince($0.value.time) < 60 }
+        if !menus.isEmpty { cache[pid] = (menus, now) }
     }
 
     func hide() {

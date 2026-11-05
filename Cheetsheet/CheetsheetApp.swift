@@ -51,6 +51,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let holdMonitor = ModifierHoldMonitor()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // When the app is only hosting the unit tests, don't prompt for permissions,
+        // watch the keyboard or run tmux and vim.
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
         // Give the main window a moment to open first, so the Dock icon doesn't
         // vanish and reappear during launch.
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { AppSettings.applyDockIconPolicy() }

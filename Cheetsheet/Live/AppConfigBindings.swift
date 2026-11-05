@@ -33,9 +33,11 @@ nonisolated struct ConfigBindings: Sendable {
                 MenuShortcut(title: $0.title, keys: $0.keys, note: $0.note, alsoWorks: $0.alsoWorks)
             })
         }
+        // Menu group ids are menu-bar positions with gaps, so start after the highest one.
+        let nextID = (menus.map(\.id).max() ?? 0) + 1
         return menus + [
-            group(menus.count, "Your bindings (\(source))", extra.filter(\.isCustom)),
-            group(menus.count + 1, "Not in menus (\(source))", extra.filter { !$0.isCustom }),
+            group(nextID, "Your bindings (\(source))", extra.filter(\.isCustom)),
+            group(nextID + 1, "Not in menus (\(source))", extra.filter { !$0.isCustom }),
         ].compactMap { $0 }
     }
 }

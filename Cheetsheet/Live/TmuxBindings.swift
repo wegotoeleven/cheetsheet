@@ -215,27 +215,10 @@ nonisolated enum TmuxBindings {
 
     // MARK: - Running tmux
 
-    /// GUI apps don't get the shell's PATH, so look in the usual install locations.
-    private static func executable() -> String? {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        return ["/opt/homebrew/bin/tmux", "/usr/local/bin/tmux", "/opt/local/bin/tmux",
-                "/run/current-system/sw/bin/tmux", "\(home)/.nix-profile/bin/tmux", "/usr/bin/tmux"]
-            .first { FileManager.default.isExecutableFile(atPath: $0) }
-    }
+    private static func executable() -> String? { ProcessRunner.find("tmux") }
 
     /// Runs tmux and returns its output, or nil if it failed (e.g. "no server running").
     private static func run(_ path: String, _ arguments: [String]) -> String? {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: path)
-        process.arguments = arguments
-        let output = Pipe()
-        process.standardOutput = output
-        process.standardError = FileHandle.nullDevice
-        do { try process.run() } catch { return nil }
-        // Read everything before waiting: a full pipe would otherwise block tmux forever.
-        let data = output.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else { return nil }
-        return String(decoding: data, as: UTF8.self)
+        ProcessRunner.run(path, arguments)
     }
 }

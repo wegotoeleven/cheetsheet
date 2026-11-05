@@ -159,7 +159,8 @@ struct OverlayView: View {
                     ForEach(Array(column.enumerated()), id: \.offset) { _, group in
                         ShortcutCard(title: group.title) {
                             ForEach(Array(group.items.enumerated()), id: \.offset) { _, item in
-                                ShortcutRow(title: item.title, keys: item.keys, replaced: item.replaced, alsoWorks: item.alsoWorks, compact: true)
+                                ShortcutRow(title: item.title, note: item.note, keys: item.keys, replaced: item.replaced,
+                                            alsoWorks: item.alsoWorks, compact: true)
                             }
                         }
                     }
@@ -184,7 +185,8 @@ struct OverlayView: View {
         var columns: [[MenuGroup]] = [[]]
         var rows = 0
         for chunk in chunks {
-            let needed = chunk.items.count + 2  // +2 for the card title and spacing
+            // One row per item, plus roughly half a row for each note, plus 2 for the title and spacing.
+            let needed = chunk.items.count + (chunk.items.filter { $0.note != nil }.count + 1) / 2 + 2
             if rows > 0, rows + needed > maxRows {
                 columns.append([])
                 rows = 0

@@ -51,13 +51,16 @@ struct CurrentAppView: View {
     }
 
     private func load() async {
-        guard Permissions.isTrusted, let pid = tracker.lastApp?.processIdentifier else { return }
+        guard Permissions.isTrusted, let app = tracker.lastApp else { return }
+        let pid = app.processIdentifier
         isLoading = true
         async let refresh: Void = store.refreshLiveBindings()
         let menus = await Task.detached { MenuReader.shortcuts(forPID: pid) }.value
         await refresh
+        // Switched to another app meanwhile: its own load will fill this in.
+        guard !Task.isCancelled else { return }
         // Add bindings from the app's config, if Cheetsheet can read it.
-        let config = tracker.lastApp?.bundleIdentifier.flatMap { store.appConfigs[$0] }
+        let config = app.bundleIdentifier.flatMap { store.appConfigs[$0] }
         groups = config?.merged(into: menus) ?? menus
         isLoading = false
     }

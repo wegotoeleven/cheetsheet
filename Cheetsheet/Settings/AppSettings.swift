@@ -158,7 +158,7 @@ struct SettingsView: View {
         }
         .onDisappear { AppSettings.windowClosed() }
         .confirmationDialog(
-            "Add lines to \(pendingAppend.flatMap(\.resolved).map(tildePath) ?? "")?",
+            "Add lines to \(pendingAppend.flatMap(\.resolved).map(ConfigFolder.tildePath) ?? "")?",
             isPresented: Binding(get: { pendingAppend != nil }, set: { if !$0 { pendingAppend = nil } }),
             presenting: pendingAppend
         ) { status in
@@ -197,13 +197,8 @@ struct SettingsView: View {
 
     private func pathDescription(_ status: TerminalConfig.Status) -> String {
         guard let url = status.url, let resolved = status.resolved else { return "No config file found" }
-        let shown = tildePath(url)
-        return resolved.standardizedFileURL == url.standardizedFileURL ? shown : "\(shown) → \(tildePath(resolved))"
-    }
-
-    private func tildePath(_ url: URL) -> String {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        return url.path.hasPrefix(home) ? "~" + url.path.dropFirst(home.count) : url.path
+        let shown = ConfigFolder.tildePath(url)
+        return resolved.standardizedFileURL == url.standardizedFileURL ? shown : "\(shown) → \(ConfigFolder.tildePath(resolved))"
     }
 
     private func refreshConfigs() {

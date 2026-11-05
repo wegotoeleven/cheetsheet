@@ -36,10 +36,12 @@ Prerequisites:
 - Xcode 26 or later (the app icon uses the Icon Composer format)
 - Optional: tmux, Vim and Ghostty, for live bindings
 
+There are no prebuilt downloads yet. Signed and notarized releases are planned (see the issues). Until then, build from source.
+
 Clone the repository and build the Release configuration:
 
 ```bash
-git clone <repository-url> cheetsheet
+git clone https://github.com/wegotoeleven/cheetsheet.git
 ```
 
 ```bash
@@ -200,12 +202,24 @@ To record keys, click the record button next to an entry's keys, press the keys,
 
 Saving writes JSON to `~/.config/cheetsheet/sheets/`. Each sheet goes back to its own file, symlinks are kept, and keys are sorted so the files diff cleanly in a dotfiles repository. Editing a built-in sheet saves your own copy. **Revert to Built-in** moves that copy to the Bin.
 
+### Running the tests
+
+The tests use Swift Testing and cover the sheet format, the editor, key recording, the tmux, Vim and Ghostty comparisons, and file watching. Run them in Xcode with ⌘U, or:
+
+```bash
+xcodebuild test -project Cheetsheet.xcodeproj -scheme Cheetsheet -destination 'platform=macOS'
+```
+
 ### Known limitations
 
 - Live bindings are read from the local Mac only, not from remote machines over SSH.
 - Menu shortcuts do not show struck-through defaults. macOS menus only expose the shortcut currently in effect.
 - Vim mappings are compared by key against the Vim sheet's normal-mode entries only. Neovim mappings are not read yet.
 - Downloadable sheets from a shared index are planned but not built yet.
+
+## How do I contribute?
+
+Report bugs and suggest features in [GitHub Issues](https://github.com/wegotoeleven/cheetsheet/issues). For a pull request, branch from `main`, keep each change focused, and describe how you tested it. If you add or edit a built-in sheet, write it from scratch rather than copying another cheatsheet app's content.
 
 ## License
 

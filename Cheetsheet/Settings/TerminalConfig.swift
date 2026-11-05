@@ -65,7 +65,7 @@ struct TerminalConfig: Identifiable {
         TerminalConfig(
             id: "vim",
             name: "Vim",
-            candidates: [".vimrc", ".vim/vimrc"],
+            candidates: VimBindings.vimrcCandidates,
             patterns: [vimSetTitle],
             lines: { _ in
                 "\n\" Added by Cheetsheet: shows vim in the window title so it can be detected\nset title\n"

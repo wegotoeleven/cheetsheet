@@ -15,6 +15,8 @@ final class SheetStore {
     private(set) var appConfigs: [String: ConfigBindings] = [:]
     // @ObservationIgnored: bookkeeping that shouldn't redraw any views.
     @ObservationIgnored private var lastLiveRefresh = Date.distantPast
+    /// Goes up each time live bindings are re-read, so the overlay knows to redraw.
+    @ObservationIgnored private(set) var liveGeneration = 0
     @ObservationIgnored private var liveRefresh: Task<Void, Never>?
 
     /// The file each of your sheets came from, by sheet ID.
@@ -86,6 +88,7 @@ final class SheetStore {
             live["vim"] = await vimBindings
             appConfigs = await configs
             lastLiveRefresh = Date()
+            liveGeneration += 1
         }
         liveRefresh = task
         await task.value

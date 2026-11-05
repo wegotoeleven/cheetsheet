@@ -15,15 +15,26 @@ nonisolated enum VimBindings {
         let rhs: String
     }
 
+    /// Where Vim looks for your config, in Vim's own order. Settings → Terminals uses this too.
+    static let vimrcCandidates = [".vimrc", ".vim/vimrc", ".config/vim/vimrc"]
+
+    private struct Lists: Sendable { let defaults: [Mapping], user: [Mapping] }
+    /// Running Vim twice takes a moment and runs your vimrc, so only do it when it changed.
+    private static let cache = ConfigCache<Lists>()
+
     /// Returns nil when Vim or a vimrc can't be found, or Vim fails.
     static func load(for sheet: Cheatsheet) -> LiveBindings? {
-        guard let vim = executable(), let vimrc = vimrc() else { return nil }
-        // Without a vimrc Vim also skips plugins; turning them back on keeps plugin
-        // mappings out of "yours", since both lists then have them.
-        guard let defaults = mappings(vim, ["-u", "NONE", "--cmd", "set loadplugins"]),
-              let user = mappings(vim, ["-u", vimrc.path])
-        else { return nil }
-        return resolve(sheet: sheet, defaults: defaults, user: user,
+        guard let vim = ProcessRunner.find("vim"), let vimrc = vimrc() else { return nil }
+        let lists = cache.value(for: [vimrc]) {
+            // Without a vimrc Vim also skips plugins; turning them back on keeps plugin
+            // mappings out of "yours", since both lists then have them.
+            guard let defaults = mappings(vim, ["-u", "NONE", "--cmd", "set loadplugins"]),
+                  let user = mappings(vim, ["-u", vimrc.path])
+            else { return nil }
+            return Lists(defaults: defaults, user: user)
+        }
+        guard let lists else { return nil }
+        return resolve(sheet: sheet, defaults: lists.defaults, user: lists.user,
                        source: ConfigFolder.tildePath(vimrc))
     }
 
@@ -145,44 +156,27 @@ nonisolated enum VimBindings {
 
     // MARK: - Running Vim
 
-    private static func executable() -> String? {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        return ["/opt/homebrew/bin/vim", "/usr/local/bin/vim", "/opt/local/bin/vim",
-                "/run/current-system/sw/bin/vim", "\(home)/.nix-profile/bin/vim", "/usr/bin/vim"]
-            .first { FileManager.default.isExecutableFile(atPath: $0) }
-    }
-
-    /// Where Vim looks for your config, in Vim's own order.
     private static func vimrc() -> URL? {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        return [".vimrc", ".vim/vimrc", ".config/vim/vimrc"].map { home.appending(path: $0) }
+        return vimrcCandidates.map { home.appending(path: $0) }
             .first { FileManager.default.fileExists(atPath: $0.path) }
     }
 
     /// Starts Vim with `arguments`, has it write every mapping as JSON to a temporary file,
-    /// and quits. Gives up after a few seconds in case something in the vimrc waits for input.
+    /// and quits.
     private static func mappings(_ vim: String, _ arguments: [String]) -> [Mapping]? {
         let output = FileManager.default.temporaryDirectory.appending(path: "cheetsheet-vim-\(UUID().uuidString).json")
         defer { try? FileManager.default.removeItem(at: output) }
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: vim)
         // -N: not Vi-compatible. -es: silent batch mode, no screen. -i NONE: don't touch viminfo.
-        process.arguments = ["-N", "-es", "-i", "NONE"] + arguments + [
+        let arguments = ["-N", "-es", "-i", "NONE"] + arguments + [
             "-c", "call writefile([json_encode(maplist()->map({_, m -> {'mode': m.mode, 'lhs': m.lhs, 'rhs': m.rhs}}))], $CHEETSHEET_OUT)",
             "-c", "qa!",
         ]
-        process.environment = ProcessInfo.processInfo.environment.merging(["CHEETSHEET_OUT": output.path]) { $1 }
-        process.standardInput = FileHandle.nullDevice
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        do { try process.run() } catch { return nil }
-
-        let deadline = Date().addingTimeInterval(5)
-        while process.isRunning && Date() < deadline { Thread.sleep(forTimeInterval: 0.05) }
-        if process.isRunning { process.terminate(); return nil }
-
-        guard let data = try? Data(contentsOf: output) else { return nil }
+        // Vim exits with an error code if the vimrc had any error, even a harmless one,
+        // so the file it wrote is what counts.
+        guard ProcessRunner.run(vim, arguments, environment: ["CHEETSHEET_OUT": output.path],
+                                requireSuccess: false) != nil,
+              let data = try? Data(contentsOf: output) else { return nil }
         return try? JSONDecoder().decode([Mapping].self, from: data)
     }
 }
