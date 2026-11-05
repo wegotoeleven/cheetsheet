@@ -14,11 +14,17 @@ struct CheetsheetApp: App {
             ContentView()
                 .environment(appDelegate.store) // makes these available to every child view
                 .environment(tracker)
+                // Lets the Dock icon follow the window in "While a window is open" mode.
+                .onAppear { AppSettings.windowOpened() }
+                .modifier(RegistersWindowOpener())
+                .onDisappear { AppSettings.windowClosed() }
         }
         .defaultSize(width: 1000, height: 680)
 
-        MenuBarExtra("Cheetsheet", systemImage: "keyboard", isInserted: $showMenuBarIcon) {
+        MenuBarExtra(isInserted: $showMenuBarIcon) {
             MenuBarMenu()
+        } label: {
+            Image(nsImage: menuBarIcon)
         }
 
         Settings {
@@ -27,6 +33,16 @@ struct CheetsheetApp: App {
     }
 }
 
+/// The ⌘ squircle, drawn larger than MenuBarExtra's default so it matches other menu bar icons.
+/// As a template image, macOS colours it to suit light and dark menu bars.
+private let menuBarIcon: NSImage = {
+    let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .regular)
+    let image = NSImage(systemSymbolName: "command.square.fill", accessibilityDescription: "Cheetsheet")!
+        .withSymbolConfiguration(config)!
+    image.isTemplate = true
+    return image
+}()
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Shared by the main window and the overlay, so it lives here rather than in a view.
     let store = SheetStore()
@@ -34,17 +50,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let holdMonitor = ModifierHoldMonitor()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // If both icons ended up hidden (e.g. the menu bar icon was ⌘-dragged away), bring the Dock icon back.
-        let defaults = UserDefaults.standard
-        if !AppSettings.showDockIcon, defaults.object(forKey: AppSettings.showMenuBarIconName) as? Bool == false {
-            defaults.set(true, forKey: AppSettings.showDockIconName)
+        // Give the main window a moment to open first, so the Dock icon doesn't
+        // vanish and reappear during launch.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { AppSettings.applyDockIconPolicy() }
+        // The menu bar icon can be turned off outside Settings, by ⌘-dragging it out of the
+        // menu bar. Any settings change re-checks the Dock icon; it's a no-op when nothing changed.
+        NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { AppSettings.applyDockIconPolicy() }
         }
-        if !AppSettings.showDockIcon { AppSettings.applyDockIconPolicy() }
         if !Permissions.isTrusted { Permissions.prompt() }
         holdMonitor.onHold = { [weak self] in self?.overlay.show() }
         holdMonitor.onRelease = { [weak self] in self?.overlay.hide() }
         holdMonitor.start()
         Task { await store.refreshLiveBindings() }
+    }
+
+    /// SwiftUI quits apps whose only window closes. Cheetsheet keeps running for the
+    /// overlay and menu bar icon, so it only quits from the Quit command.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
+
+    /// Clicking the Dock icon with no window open brings the main window back.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        guard !hasVisibleWindows, let open = MainWindow.open else { return true }
+        open()
+        return false
+    }
+}
+
+/// Lets AppKit code open the main window. SwiftUI's `openWindow` only exists inside views,
+/// so the main window hands it over here the first time it appears.
+enum MainWindow {
+    static var open: (() -> Void)?
+}
+
+private struct RegistersWindowOpener: ViewModifier {
+    @Environment(\.openWindow) private var openWindow
+
+    func body(content: Content) -> some View {
+        content.onAppear { MainWindow.open = { openWindow(id: "main") } }
     }
 }
 

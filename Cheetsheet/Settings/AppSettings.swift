@@ -41,22 +41,34 @@ enum AppSettings {
     static let triggerKeyName = "triggerKey"
     static let holdDelayName = "holdDelay"
     static let defaultHoldDelay = 0.8
-    static let showDockIconName = "showDockIcon"
     static let showMenuBarIconName = "showMenuBarIcon"
     static let hideHostMenusName = "hideHostMenus"
 
     /// Hide the terminal's own menus when tmux or vim is detected inside it.
     static var hideHostMenus: Bool { UserDefaults.standard.bool(forKey: hideHostMenusName) }
 
-    static var showDockIcon: Bool {
-        UserDefaults.standard.object(forKey: showDockIconName) as? Bool ?? true
+    static var showMenuBarIcon: Bool {
+        UserDefaults.standard.object(forKey: showMenuBarIconName) as? Bool ?? true
     }
 
-    /// Shows or hides the Dock icon. "Accessory" apps have no Dock icon or app menu bar.
+    /// How many of Cheetsheet's windows (main, Settings) are open right now.
+    private static var openWindows = 0
+
+    /// Called by each window as it opens and closes.
+    static func windowOpened() { openWindows += 1; applyDockIconPolicy() }
+    static func windowClosed() { openWindows = max(0, openWindows - 1); applyDockIconPolicy() }
+
+    /// Shows or hides the Dock icon. "Accessory" apps have no Dock icon or app menu bar,
+    /// but keep their menu bar extra, overlay and any open windows.
     static func applyDockIconPolicy() {
-        NSApp.setActivationPolicy(showDockIcon ? .regular : .accessory)
-        // Switching policy can push our windows behind other apps; bring them back.
-        DispatchQueue.main.async { NSApp.activate() }
+        // With the menu bar icon gone, the Dock icon is the only way back in, so it stays.
+        let showDock = openWindows > 0 || !showMenuBarIcon
+        let policy: NSApplication.ActivationPolicy = showDock ? .regular : .accessory
+        guard NSApp.activationPolicy() != policy else { return }
+        NSApp.setActivationPolicy(policy)
+        // Becoming a regular app can leave our window behind others; bring it forward.
+        // (Not when hiding: that would steal focus from the app you're switching back to.)
+        if showDock { DispatchQueue.main.async { NSApp.activate() } }
     }
 
     static var trigger: TriggerKey {
@@ -73,7 +85,6 @@ struct SettingsView: View {
     // @AppStorage reads and writes UserDefaults and redraws the view on change.
     @AppStorage(AppSettings.triggerKeyName) private var trigger: TriggerKey = .command
     @AppStorage(AppSettings.holdDelayName) private var holdDelay: Double = AppSettings.defaultHoldDelay
-    @AppStorage(AppSettings.showDockIconName) private var showDockIcon = true
     @AppStorage(AppSettings.showMenuBarIconName) private var showMenuBarIcon = true
     @AppStorage(AppSettings.hideHostMenusName) private var hideHostMenus = false
     @State private var configStatuses: [TerminalConfig.Status] = []
@@ -83,18 +94,13 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section {
-                // Each toggle is locked on while the other is off, so Cheetsheet stays reachable.
-                Toggle("Show in Dock", isOn: $showDockIcon)
-                    .disabled(showDockIcon && !showMenuBarIcon)
                 Toggle("Show in menu bar", isOn: $showMenuBarIcon)
-                    .disabled(showMenuBarIcon && !showDockIcon)
             } header: {
                 Text("App")
             } footer: {
-                Text("At least one has to stay on so you can open Cheetsheet.")
+                Text("The Dock icon shows while a Cheetsheet window is open. Without the menu bar icon, it stays in the Dock so you can always get back in. The overlay works either way.")
                     .foregroundStyle(.secondary)
             }
-            .onChange(of: showDockIcon) { AppSettings.applyDockIconPolicy() }
 
             Section {
                 Picker("Hold to show", selection: $trigger) {
@@ -141,7 +147,11 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .onAppear(perform: refreshConfigs)
+        .onAppear {
+            refreshConfigs()
+            AppSettings.windowOpened()
+        }
+        .onDisappear { AppSettings.windowClosed() }
         .confirmationDialog(
             "Add lines to \(pendingAppend.flatMap(\.resolved).map(tildePath) ?? "")?",
             isPresented: Binding(get: { pendingAppend != nil }, set: { if !$0 { pendingAppend = nil } }),
