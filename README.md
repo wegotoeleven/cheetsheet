@@ -223,4 +223,4 @@ Report bugs and suggest features in [GitHub Issues](https://github.com/wegotoele
 
 ## License
 
-No license is specified.
+Distributed under the MIT License. See [LICENSE](LICENSE) for details.
