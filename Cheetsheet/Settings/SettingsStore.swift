@@ -54,7 +54,11 @@ final class SettingsStore {
         if FileManager.default.fileExists(atPath: ConfigFolder.configFile.path) {
             reload()
         } else {
+            // Saved once, here: didSet would also save, but skips a value equal to the
+            // defaults, so it can't be relied on to create the file.
+            isReloading = true
             config = Self.migratedFromUserDefaults()
+            isReloading = false
             save()
         }
         watcher = FolderWatcher(ConfigFolder.url) { [weak self] in self?.reload() }
