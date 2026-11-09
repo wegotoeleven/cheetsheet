@@ -16,7 +16,7 @@ struct SheetTests {
 
     @Test func builtInSheetsLoad() throws {
         let ids = Set(try Self.builtInSheets().map(\.id))
-        #expect(ids.isSuperset(of: ["tmux", "vim"]))
+        #expect(ids.isSuperset(of: ["tmux", "vim", "herdr"]))
     }
 
     @Test func builtInSheetsHaveUniqueActionsAndSectionTitles() throws {

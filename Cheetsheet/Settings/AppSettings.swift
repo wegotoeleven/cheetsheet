@@ -130,7 +130,7 @@ struct SettingsView: View {
             }
 
             Section {
-                Toggle("Hide the terminal's own shortcuts when tmux or vim is detected", isOn: $settings.config.hideTerminalShortcuts)
+                Toggle("Hide the terminal's own shortcuts when tmux, herdr or vim is detected", isOn: $settings.config.hideTerminalShortcuts)
                 ForEach(configStatuses, id: \.config.id) { status in
                     configRow(status)
                 }
@@ -138,6 +138,8 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("~/.tmux.conf")
                         snippet("set -g set-titles on\nset -g set-titles-string \"#T — tmux\"")
+                        Text("~/.config/herdr/config.toml, in [ui]").padding(.top, 4)
+                        snippet("window_title = \"{workspace}: {terminal_title} — herdr\"")
                         Text("~/.vimrc or init.vim").padding(.top, 4)
                         snippet("set title")
                         Text("init.lua").padding(.top, 4)
@@ -148,7 +150,7 @@ struct SettingsView: View {
             } header: {
                 Text("Terminals")
             } footer: {
-                Text("Cheetsheet spots tmux and vim from the terminal window's title, so it also works over SSH. Machines you SSH into need these lines too. If your configs live in a dotfiles repo, commit the change there. After adding, restart vim and run tmux source-file ~/.tmux.conf.")
+                Text("Cheetsheet spots tmux, herdr and vim from the terminal window's title, so it also works over SSH. Machines you SSH into need these lines too. If your configs live in a dotfiles repo, commit the change there. After adding, restart vim, run tmux source-file ~/.tmux.conf and run herdr server reload-config.")
                     .foregroundStyle(.secondary)
             }
         }

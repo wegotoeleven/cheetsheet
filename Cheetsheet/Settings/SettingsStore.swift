@@ -10,7 +10,7 @@ nonisolated struct ConfigFile: Codable, Equatable {
     /// Seconds to hold the trigger key before the overlay appears.
     var holdDelay: Double = 0.8
     var showMenuBarIcon = true
-    /// Hide the terminal's own shortcuts when tmux or vim is detected inside it.
+    /// Hide the terminal's own shortcuts when tmux, herdr or vim is detected inside it.
     var hideTerminalShortcuts = false
 
     init() {}

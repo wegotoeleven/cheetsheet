@@ -1,6 +1,6 @@
 import Foundation
 
-/// A config file (vim, Neovim, tmux) that needs a line or two so the program
+/// A config file (vim, Neovim, tmux, herdr) that needs a line or two so the program
 /// puts its name in the terminal's window title, which is how Cheetsheet detects it.
 struct TerminalConfig: Identifiable {
     let id: String
@@ -75,6 +75,24 @@ struct TerminalConfig: Identifiable {
             ],
             lines: { _ in
                 "\n# Added by Cheetsheet: shows tmux in the window title so it can be detected\nset -g set-titles on\nset -g set-titles-string \"#T — tmux\"\n"
+            }
+        ),
+        TerminalConfig(
+            id: "herdr",
+            name: "herdr",
+            candidates: [HerdrBindings.configPath],
+            patterns: [#"(?m)^\s*window_title\s*=.*herdr"#],
+            lines: { _ in
+                "# Added by Cheetsheet: shows herdr in the window title so it can be detected\nwindow_title = \"{workspace}: {terminal_title} — herdr\"\n"
+            },
+            // TOML allows one [ui] table and one window_title, so the lines go into an
+            // existing [ui] table, and a window_title you already set is left for you to edit.
+            place: { text, lines in
+                guard text.range(of: #"(?m)^\s*window_title\s*="#, options: .regularExpression) == nil else { return nil }
+                if let header = text.range(of: #"(?m)^[ \t]*\[ui\][ \t]*(#.*)?$"#, options: .regularExpression) {
+                    return (header.upperBound, "\n" + lines.trimmingCharacters(in: .newlines))
+                }
+                return (text.endIndex, (text.hasSuffix("\n") || text.isEmpty ? "" : "\n") + "\n[ui]\n" + lines)
             }
         ),
         TerminalConfig(

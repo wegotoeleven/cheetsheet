@@ -1,0 +1,75 @@
+{
+  "id": "herdr",
+  "name": "herdr",
+  "symbol": "square.split.2x2",
+  "prefix": "⌃b",
+  "show": { "terminalTitle": "\\bherdr\\b" },
+  "layer": 1,
+  "sections": [
+    {
+      "title": "Sessions and workspaces",
+      "entries": [
+        { "action": "detach", "keys": ["{prefix}", "q"], "description": "Detach from session" },
+        { "action": "goto", "keys": ["{prefix}", "g"], "description": "Go to an agent or terminal" },
+        { "action": "workspace_picker", "keys": ["{prefix}", "w"], "description": "Choose a workspace" },
+        { "action": "new_workspace", "keys": ["{prefix}", "N"], "description": "New workspace" },
+        { "action": "new_worktree", "keys": ["{prefix}", "G"], "description": "New workspace in a Git worktree" },
+        { "action": "rename_workspace", "keys": ["{prefix}", "W"], "description": "Rename workspace" },
+        { "action": "close_workspace", "keys": ["{prefix}", "D"], "description": "Close workspace" },
+        { "action": "open_notification_target", "keys": ["{prefix}", "o"], "description": "Go to the notifying pane" }
+      ]
+    },
+    {
+      "title": "Tabs",
+      "entries": [
+        { "action": "new_tab", "keys": ["{prefix}", "c"], "description": "New tab" },
+        { "action": "rename_tab", "keys": ["{prefix}", "T"], "description": "Rename tab" },
+        { "action": "next_tab", "keys": ["{prefix}", "n"], "description": "Next tab" },
+        { "action": "previous_tab", "keys": ["{prefix}", "p"], "description": "Previous tab" },
+        { "action": "switch_tab", "keys": ["{prefix}", "1–9"], "description": "Go to tab by number" },
+        { "action": "close_tab", "keys": ["{prefix}", "X"], "description": "Close tab" }
+      ]
+    },
+    {
+      "title": "Panes",
+      "entries": [
+        { "action": "split_vertical", "keys": ["{prefix}", "v"], "description": "Split left and right" },
+        { "action": "split_horizontal", "keys": ["{prefix}", "-"], "description": "Split top and bottom" },
+        { "action": "focus_pane_left", "keys": ["{prefix}", "h"], "description": "Move to pane on the left" },
+        { "action": "focus_pane_down", "keys": ["{prefix}", "j"], "description": "Move to pane below" },
+        { "action": "focus_pane_up", "keys": ["{prefix}", "k"], "description": "Move to pane above" },
+        { "action": "focus_pane_right", "keys": ["{prefix}", "l"], "description": "Move to pane on the right" },
+        { "action": "cycle_pane_next", "keys": ["{prefix}", "⇥"], "description": "Next pane" },
+        { "action": "cycle_pane_previous", "keys": ["{prefix}", "⇧⇥"], "description": "Previous pane" },
+        { "action": "swap_pane_left", "keys": ["{prefix}", "H"], "description": "Swap with pane on the left" },
+        { "action": "swap_pane_down", "keys": ["{prefix}", "J"], "description": "Swap with pane below" },
+        { "action": "swap_pane_up", "keys": ["{prefix}", "K"], "description": "Swap with pane above" },
+        { "action": "swap_pane_right", "keys": ["{prefix}", "L"], "description": "Swap with pane on the right" },
+        { "action": "zoom", "keys": ["{prefix}", "z"], "description": "Zoom pane on or off" },
+        { "action": "resize_mode", "keys": ["{prefix}", "r"], "description": "Resize panes", "note": "Esc to finish" },
+        { "action": "rename_pane", "keys": ["{prefix}", "P"], "description": "Rename pane" },
+        { "action": "close_pane", "keys": ["{prefix}", "x"], "description": "Close pane" }
+      ]
+    },
+    {
+      "title": "Scrollback",
+      "entries": [
+        { "action": "copy_mode", "keys": ["{prefix}", "["], "description": "Enter copy mode to scroll" },
+        { "action": "copy-mode:select", "keys": ["v"], "description": "Start selecting", "note": "In copy mode" },
+        { "action": "copy-mode:copy", "keys": ["y"], "description": "Copy selection", "note": "In copy mode" },
+        { "action": "copy-mode:search", "keys": ["/"], "description": "Search forward", "note": "In copy mode; ? searches back" },
+        { "action": "copy-mode:cancel", "keys": ["q"], "description": "Leave copy mode" },
+        { "action": "edit_scrollback", "keys": ["{prefix}", "e"], "description": "Open scrollback in $EDITOR" }
+      ]
+    },
+    {
+      "title": "herdr",
+      "entries": [
+        { "action": "help", "keys": ["{prefix}", "?"], "description": "List key bindings" },
+        { "action": "settings", "keys": ["{prefix}", "s"], "description": "Settings" },
+        { "action": "toggle_sidebar", "keys": ["{prefix}", "b"], "description": "Show or hide the sidebar" },
+        { "action": "reload_config", "keys": ["{prefix}", "R"], "description": "Reload config" }
+      ]
+    }
+  ]
+}

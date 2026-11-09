@@ -64,6 +64,149 @@ struct TmuxTests {
     }
 }
 
+struct HerdrTests {
+    // The shape `herdr --default-config` prints: every setting commented out.
+    let defaults = HerdrBindings.parse(HerdrBindings.uncommented(#"""
+    [keys]
+    # Prefix key to enter prefix mode (default: "ctrl+b")
+    # prefix = "ctrl+b"
+    # next_tab = "prefix+n"
+    # split_vertical = "prefix+v"
+    # split_horizontal = "prefix+minus"
+    # close_pane = "prefix+x"
+    # last_pane = ""          # optional, unset by default
+    # [[keys.command]]
+    # key = "prefix+alt+g"
+    # command = "lazygit"
+    """#))
+
+    func resolve(_ user: String) throws -> LiveBindings {
+        HerdrBindings.resolve(sheet: try SheetTests.sheet("herdr"), defaults: defaults,
+                              user: HerdrBindings.parse(user), source: "test")
+    }
+
+    @Test func defaultsAreReadFromComments() {
+        #expect(defaults.actions["prefix"] == ["ctrl+b"])
+        #expect(defaults.actions["split_horizontal"] == ["prefix+minus"])
+        #expect(defaults.actions["last_pane"] == [])
+    }
+
+    @Test func prefixAddedKeysAndExtras() throws {
+        let live = try resolve(#"""
+        [theme]
+        name = "catppuccin"
+
+        [keys]
+        prefix = ["ctrl+space", "ctrl+s"]
+        split_vertical = "prefix+backslash"     # replaces v
+        split_horizontal = [
+          "prefix+minus",
+          "prefix+shift+minus",
+        ]
+        last_pane = "prefix+tab"
+
+        [[keys.command]]
+        key = "prefix+alt+g"
+        type = "popup"
+        command = "lazygit"
+        description = "Git"
+
+        [ui]
+        window_title = "x # not a comment"
+        """#)
+        #expect(live.prefix == "⌃space")
+
+        // v is gone and \ does its job.
+        let moved = try #require(live.overrides["split_vertical"])
+        #expect(moved.keys == ["⌃space", "\\"] && !moved.defaultStillWorks && moved.note == nil)
+
+        // - still works and ⇧- was added.
+        let added = try #require(live.overrides["split_horizontal"])
+        #expect(added.keys == ["⌃space", "⇧-"] && added.defaultStillWorks)
+
+        // last_pane isn't on the sheet, so it's one of their bindings, as is the command.
+        #expect(live.extras.map(\.title) == ["Last pane", "Git"])
+        #expect(live.extras.map(\.keys) == [["⌃space", "⇥"], ["⌃space", "⌥g"]])
+    }
+
+    @Test func unboundAndTakenDefaults() throws {
+        var live = try resolve("[keys]\nclose_pane = \"\"")
+        #expect(live.overrides["close_pane"]?.note == "Unbound")
+
+        // herdr gives the key to your binding and drops the default that had it.
+        live = try resolve("[keys]\nsplit_vertical = \"prefix+n\"")
+        #expect(live.overrides["next_tab"]?.note == "Key now runs Split vertical")
+        #expect(live.overrides["split_vertical"]?.keys == ["⌃b", "n"])
+    }
+
+    @Test func sheetActionsWithoutAPrintedDefaultAreListed() throws {
+        // herdr 0.9.5 doesn't print copy_mode's default, so there's nothing to compare with.
+        let live = try resolve("[keys]\ncopy_mode = \"prefix+y\"")
+        #expect(live.overrides["copy_mode"] == nil)
+        #expect(live.extras.map(\.title) == ["Copy mode"])
+    }
+
+    @Test func untouchedConfigChangesNothing() throws {
+        let live = try resolve("[keys]\nprefix = \"ctrl+b\"\nnext_tab = \"prefix+n\"")
+        #expect(live.prefix == nil && live.overrides.isEmpty && live.extras.isEmpty)
+    }
+
+    @Test func keyNames() {
+        #expect(HerdrBindings.display("ctrl+a") == "⌃a")
+        #expect(HerdrBindings.display("shift+n") == "N")
+        #expect(HerdrBindings.display("shift+tab") == "⇧⇥")
+        #expect(HerdrBindings.display("ctrl+alt+left") == "⌃⌥←")
+        #expect(HerdrBindings.display("cmd++") == "⌘+")
+        #expect(HerdrBindings.display("1..9") == "1–9")
+    }
+
+    @Test func everySheetKeyMatchesHerdrsDefault() throws {
+        // The sheet's keycaps must be what herdr's defaults display as, or every entry
+        // would look changed. These are the defaults from herdr 0.9.5.
+        let sheet = try SheetTests.sheet("herdr")
+        let herdrDefaults = [
+            "detach": "q", "goto": "g", "workspace_picker": "w", "new_workspace": "shift+n",
+            "new_worktree": "shift+g", "rename_workspace": "shift+w", "close_workspace": "shift+d",
+            "open_notification_target": "o", "new_tab": "c", "rename_tab": "shift+t", "next_tab": "n",
+            "previous_tab": "p", "switch_tab": "1..9", "close_tab": "shift+x", "split_vertical": "v",
+            "split_horizontal": "minus", "focus_pane_left": "h", "focus_pane_down": "j",
+            "focus_pane_up": "k", "focus_pane_right": "l", "cycle_pane_next": "tab",
+            "cycle_pane_previous": "shift+tab", "swap_pane_left": "shift+h", "swap_pane_down": "shift+j",
+            "swap_pane_up": "shift+k", "swap_pane_right": "shift+l", "zoom": "z", "resize_mode": "r",
+            "rename_pane": "shift+p", "close_pane": "x", "copy_mode": "[", "edit_scrollback": "e",
+            "help": "?", "settings": "s", "toggle_sidebar": "b", "reload_config": "shift+r",
+        ]
+        for entry in sheet.sections.flatMap(\.entries) where entry.keys.first == "{prefix}" {
+            let key = try #require(herdrDefaults[entry.action], "\(entry.action)")
+            #expect(entry.keys == ["{prefix}", HerdrBindings.display(key)], "\(entry.action)")
+        }
+    }
+}
+
+struct TerminalConfigTests {
+    let herdr = TerminalConfig.all.first { $0.id == "herdr" }!
+    var lines: String { herdr.lines("toml") }
+
+    @Test func herdrLinesGoIntoTheUITable() throws {
+        let text = "[ui]\nsidebar_width = 30\n"
+        let (index, insert) = try #require(herdr.place(text, lines))
+        var updated = text
+        updated.insert(contentsOf: insert, at: index)
+        #expect(updated.hasPrefix("[ui]\n# Added by Cheetsheet"))
+        #expect(updated.contains("— herdr\"\nsidebar_width = 30\n"))
+    }
+
+    @Test func herdrLinesAddAUITableWhenThereIsNone() throws {
+        let text = "[ui.toast]\ndelivery = \"system\""
+        let (index, insert) = try #require(herdr.place(text, lines))
+        #expect(index == text.endIndex && insert.hasPrefix("\n\n[ui]\n"))
+    }
+
+    @Test func existingWindowTitleIsLeftAlone() {
+        #expect(herdr.place("[ui]\nwindow_title = \"{workspace}\"\n", lines) == nil)
+    }
+}
+
 struct GhosttyTests {
     let defaults = """
     keybind = super+d=new_split:right

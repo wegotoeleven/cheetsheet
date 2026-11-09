@@ -75,17 +75,19 @@ final class SheetStore {
     func refreshLiveBindings() async {
         if let liveRefresh { return await liveRefresh.value }
         guard Date().timeIntervalSince(lastLiveRefresh) > 5 else { return }
-        let tmux = sheet(id: "tmux"), vim = sheet(id: "vim")
+        let tmux = sheet(id: "tmux"), vim = sheet(id: "vim"), herdr = sheet(id: "herdr")
         let task = Task {
             // Task.detached runs the programs off the main thread so the UI never waits on them;
             // `async let` runs tmux and the app configs at the same time.
             async let tmuxBindings = Task.detached { tmux.flatMap(TmuxBindings.load) }.value
             async let vimBindings = Task.detached { vim.flatMap(VimBindings.load) }.value
+            async let herdrBindings = Task.detached { herdr.flatMap(HerdrBindings.load) }.value
             async let configs = Task.detached {
                 AppConfigSources.readers.compactMapValues { $0() }
             }.value
             live["tmux"] = await tmuxBindings
             live["vim"] = await vimBindings
+            live["herdr"] = await herdrBindings
             appConfigs = await configs
             lastLiveRefresh = Date()
             liveGeneration += 1

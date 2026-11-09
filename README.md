@@ -6,15 +6,15 @@ A macOS menu bar app that shows the keyboard shortcuts for whatever you are usin
 
 Cheetsheet is a native Swift and SwiftUI app for macOS. Hold a key such as ⌘ and an overlay appears with the shortcuts for the app in front of you. It reads them from the app's menus, so it works with any app.
 
-Inside a terminal, it reads the window title to tell when tmux or Vim is running and shows their sheets as well. It reads your real configuration and marks every binding you have changed.
+Inside a terminal, it reads the window title to tell when tmux, herdr or Vim is running and shows their sheets as well. It reads your real configuration and marks every binding you have changed.
 
 You can also write your own cheatsheets as JSON or make them in the built-in editor. Everything you configure lives in `~/.config/cheetsheet`, so it can go in your dotfiles.
 
 It includes:
 
 - **An overlay for any app**, built from the front app's menus using the Accessibility API.
-- **Live bindings for tmux, Vim and Ghostty**, compared against each program's defaults. A default you have removed or remapped is struck through. A default that still works alongside a key you added is greyed out.
-- **Built-in tmux and Vim sheets.** Your prefix key is substituted into the tmux sheet.
+- **Live bindings for tmux, herdr, Vim and Ghostty**, compared against each program's defaults. A default you have removed or remapped is struck through. A default that still works alongside a key you added is greyed out.
+- **Built-in tmux, herdr and Vim sheets.** Your prefix key is substituted into the tmux and herdr sheets.
 - **Your own sheets.** Each one says where it appears: everywhere, in chosen apps, or inside a terminal when the window title matches a pattern.
 - **A sheet editor** that records keys as you press them and saves plain JSON.
 - **A main window** with a searchable view of every sheet and the current app's menu shortcuts.
@@ -24,7 +24,7 @@ It includes:
 
 Keyboard shortcuts are spread across app menus, terminal multiplexers, editors and dotfiles. Most cheatsheet tools show fixed lists that ignore your own configuration.
 
-Cheetsheet reads what is actually in effect on your machine. That means each app's menus, your running tmux server or `tmux.conf`, your `vimrc`, and your Ghostty config. It shows those bindings next to the defaults, so a sheet never lists a key that no longer works for you.
+Cheetsheet reads what is actually in effect on your machine. That means each app's menus, your running tmux server or `tmux.conf`, your herdr `config.toml`, your `vimrc`, and your Ghostty config. It shows those bindings next to the defaults, so a sheet never lists a key that no longer works for you.
 
 Reading other apps' menus requires the Accessibility API, which rules out the App Sandbox. So Cheetsheet is distributed outside the Mac App Store.
 
@@ -34,7 +34,7 @@ Prerequisites:
 
 - macOS 26 or later
 - Xcode 26 or later (the app icon uses the Icon Composer format)
-- Optional: tmux, Vim and Ghostty, for live bindings
+- Optional: tmux, herdr (tested with 0.9.5), Vim and Ghostty, for live bindings
 
 There are no prebuilt downloads yet. Signed and notarized releases are planned (see the issues). Until then, build from source.
 
@@ -82,7 +82,7 @@ All settings are stored in `~/.config/cheetsheet/config.json`, which is created 
 | `trigger` | `command`, `option`, `control`, `shift` | The modifier you hold to show the overlay |
 | `holdDelay` | seconds | How long to hold it before the overlay appears |
 | `showMenuBarIcon` | `true`, `false` | With the icon hidden, Cheetsheet stays in the Dock instead |
-| `hideTerminalShortcuts` | `true`, `false` | Hide the terminal app's own shortcuts when tmux or Vim is detected |
+| `hideTerminalShortcuts` | `true`, `false` | Hide the terminal app's own shortcuts when tmux, herdr or Vim is detected |
 
 "Open at login" is in Settings → App. It is not stored in `config.json`, because macOS keeps that setting itself under System Settings → General → Login Items.
 
@@ -104,15 +104,22 @@ When a binding differs from the default, the overlay shows a legend:
 - **Struck through:** a default you have removed or rebound. A note says "Unbound" or what the key does now.
 - **Greyed out:** a default that still works, shown after the key you added for the same action.
 
-### Detecting tmux and Vim in a terminal
+### Detecting tmux, herdr and Vim in a terminal
 
-Cheetsheet reads the terminal window's title, so tmux and Vim need to put their names in it. Settings → Terminals checks your config files and can add the lines for you. To add them yourself:
+Cheetsheet reads the terminal window's title, so tmux, herdr and Vim need to put their names in it. Settings → Terminals checks your config files and can add the lines for you. For herdr, it puts `window_title` in your existing `[ui]` table, or adds one. If you already set `window_title`, it leaves the file alone and you edit that line yourself. After adding the lines, restart Vim, run `tmux source-file ~/.tmux.conf`, and run `herdr server reload-config`. To add them yourself:
 
 ```sh
 # ~/.tmux.conf
 set -g set-titles on
 set -g set-titles-string "#T — tmux"
 ```
+
+```toml
+# ~/.config/herdr/config.toml, in the [ui] table
+window_title = "{workspace}: {terminal_title} — herdr"
+```
+
+herdr doesn't pass titles set inside its panes through to the terminal, so `{terminal_title}` is what lets Cheetsheet see Vim running inside herdr.
 
 ```vim
 " ~/.vimrc
@@ -124,13 +131,14 @@ set title
 vim.opt.title = true
 ```
 
-Detection works in Ghostty, Terminal, iTerm2, kitty, Alacritty and WezTerm, including over SSH. Live bindings always come from your Mac. On a remote machine, you see your Mac's tmux and Vim bindings, not the remote machine's.
+Detection works in Ghostty, Terminal, iTerm2, kitty, Alacritty and WezTerm, including over SSH. Live bindings always come from your Mac. On a remote machine, you see your Mac's tmux, herdr and Vim bindings, not the remote machine's.
 
 ### Live bindings
 
 | Source | How Cheetsheet reads it |
 |---|---|
 | tmux | Runs `tmux list-keys` against your running server, or loads your config on a private socket if no server is running. Compares the result with `tmux -f /dev/null`. |
+| herdr | Reads the `[keys]` table of `~/.config/herdr/config.toml`, including `[[keys.command]]` entries. Compares it with `herdr --default-config`. |
 | Vim | Runs `vim` once with your vimrc and once without it, and treats mappings that appear only with your vimrc as yours. |
 | Ghostty | Compares `ghostty +list-keybinds` with `ghostty +list-keybinds --default`. |
 
@@ -147,7 +155,7 @@ Each sheet page has section filters and a search field.
 
 ### Your own sheets
 
-Put JSON files in `~/.config/cheetsheet/sheets/`. Cheetsheet loads them, and reloads them when files change, without a restart. A sheet with the same `id` as a built-in sheet (`tmux` or `vim`) replaces it.
+Put JSON files in `~/.config/cheetsheet/sheets/`. Cheetsheet loads them, and reloads them when files change, without a restart. A sheet with the same `id` as a built-in sheet (`tmux`, `herdr` or `vim`) replaces it.
 
 ```json
 {
@@ -204,7 +212,7 @@ Saving writes JSON to `~/.config/cheetsheet/sheets/`. Each sheet goes back to it
 
 ### Running the tests
 
-The tests use Swift Testing and cover the sheet format, the editor, key recording, the tmux, Vim and Ghostty comparisons, and file watching. Run them in Xcode with ⌘U, or:
+The tests use Swift Testing and cover the sheet format, the editor, key recording, the tmux, herdr, Vim and Ghostty comparisons, and file watching. Run them in Xcode with ⌘U, or:
 
 ```bash
 xcodebuild test -project Cheetsheet.xcodeproj -scheme Cheetsheet -destination 'platform=macOS'
@@ -214,6 +222,7 @@ xcodebuild test -project Cheetsheet.xcodeproj -scheme Cheetsheet -destination 'p
 
 - Live bindings are read from the local Mac only, not from remote machines over SSH.
 - Menu shortcuts do not show struck-through defaults. macOS menus only expose the shortcut currently in effect.
+- herdr has no command that prints the bindings in effect, so they are read from `~/.config/herdr/config.toml`. A config set with `HERDR_CONFIG_PATH` is not read. herdr 0.9.5 does not print defaults for the pane swap keys or copy mode, so changes to those are listed under "Your bindings" rather than struck through.
 - Vim mappings are compared by key against the Vim sheet's normal-mode entries only. Neovim mappings are not read yet.
 - Downloadable sheets from a shared index are planned but not built yet.
 
