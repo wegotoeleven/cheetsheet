@@ -3,8 +3,8 @@ import Foundation
 /// Reads the key mappings from your vimrc and compares them with the Vim sheet.
 ///
 /// Vim runs twice in the background: once with your vimrc, once without it (`-u NONE`, but
-/// still loading plugins). A mapping only in the first list is one your vimrc made. This is
-/// the same "yours minus the defaults" comparison used for tmux and Ghostty.
+/// still loading the same plugins). A mapping only in the first list is one your vimrc made.
+/// This is the same "yours minus the defaults" comparison used for tmux and Ghostty.
 nonisolated enum VimBindings {
     struct Mapping: Hashable, Decodable {
         /// Vim's mode letters: "n" normal, "x"/"v" visual, "i" insert, " " normal+visual+operator.
@@ -18,22 +18,14 @@ nonisolated enum VimBindings {
     /// Where Vim looks for your config, in Vim's own order. Settings → Terminals uses this too.
     static let vimrcCandidates = [".vimrc", ".vim/vimrc", ".config/vim/vimrc"]
 
-    private struct Lists: Sendable { let defaults: [Mapping], user: [Mapping] }
+    struct Lists: Sendable { let defaults: [Mapping], user: [Mapping] }
     /// Running Vim twice takes a moment and runs your vimrc, so only do it when it changed.
     private static let cache = ConfigCache<Lists>()
 
     /// Returns nil when Vim or a vimrc can't be found, or Vim fails.
     static func load(for sheet: Cheatsheet) -> LiveBindings? {
         guard let vim = ProcessRunner.find("vim"), let vimrc = vimrc() else { return nil }
-        let lists = cache.value(for: [vimrc]) {
-            // Without a vimrc Vim also skips plugins; turning them back on keeps plugin
-            // mappings out of "yours", since both lists then have them.
-            guard let defaults = mappings(vim, ["-u", "NONE", "--cmd", "set loadplugins"]),
-                  let user = mappings(vim, ["-u", vimrc.path])
-            else { return nil }
-            return Lists(defaults: defaults, user: user)
-        }
-        guard let lists else { return nil }
+        guard let lists = cache.value(for: [vimrc], compute: { readLists(vim: vim, vimrc: vimrc) }) else { return nil }
         return resolve(sheet: sheet, defaults: lists.defaults, user: lists.user,
                        source: ConfigFolder.tildePath(vimrc))
     }
@@ -162,21 +154,40 @@ nonisolated enum VimBindings {
             .first { FileManager.default.fileExists(atPath: $0.path) }
     }
 
-    /// Starts Vim with `arguments`, has it write every mapping as JSON to a temporary file,
-    /// and quits.
-    private static func mappings(_ vim: String, _ arguments: [String]) -> [Mapping]? {
+    /// Your mappings, and the ones you'd have without your vimrc but with the same plugins.
+    ///
+    /// Without a vimrc Vim skips plugins, so they're turned back on. Plugin managers such as
+    /// vim-plug add plugins to the runtimepath from inside your vimrc, so the second run is
+    /// given the first run's runtimepath to find the same ones. Plugin mappings then appear
+    /// in both lists and stay out of "yours".
+    static func readLists(vim: String, vimrc: URL) -> Lists? {
+        guard let user = run(vim, ["-u", vimrc.path]),
+              let defaults = run(vim, ["-u", "NONE", "--cmd", "set loadplugins", "--cmd", "let &rtp = $CHEETSHEET_RTP"],
+                                 environment: ["CHEETSHEET_RTP": user.rtp])
+        else { return nil }
+        return Lists(defaults: defaults.maps, user: user.maps)
+    }
+
+    private struct Output: Decodable {
+        let maps: [Mapping]
+        let rtp: String
+    }
+
+    /// Starts Vim with `arguments`, has it write every mapping and its runtimepath as JSON to
+    /// a temporary file, and quits.
+    private static func run(_ vim: String, _ arguments: [String], environment: [String: String] = [:]) -> Output? {
         let output = FileManager.default.temporaryDirectory.appending(path: "cheetsheet-vim-\(UUID().uuidString).json")
         defer { try? FileManager.default.removeItem(at: output) }
         // -N: not Vi-compatible. -es: silent batch mode, no screen. -i NONE: don't touch viminfo.
         let arguments = ["-N", "-es", "-i", "NONE"] + arguments + [
-            "-c", "call writefile([json_encode(maplist()->map({_, m -> {'mode': m.mode, 'lhs': m.lhs, 'rhs': m.rhs}}))], $CHEETSHEET_OUT)",
+            "-c", "call writefile([json_encode({'rtp': &rtp, 'maps': maplist()->map({_, m -> {'mode': m.mode, 'lhs': m.lhs, 'rhs': m.rhs}})})], $CHEETSHEET_OUT)",
             "-c", "qa!",
         ]
         // Vim exits with an error code if the vimrc had any error, even a harmless one,
         // so the file it wrote is what counts.
-        guard ProcessRunner.run(vim, arguments, environment: ["CHEETSHEET_OUT": output.path],
+        guard ProcessRunner.run(vim, arguments, environment: environment.merging(["CHEETSHEET_OUT": output.path]) { $1 },
                                 requireSuccess: false) != nil,
               let data = try? Data(contentsOf: output) else { return nil }
-        return try? JSONDecoder().decode([Mapping].self, from: data)
+        return try? JSONDecoder().decode(Output.self, from: data)
     }
 }

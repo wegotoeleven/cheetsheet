@@ -64,6 +64,25 @@ struct TmuxTests {
     }
 }
 
+struct VimRunTests {
+    @Test(.enabled(if: ProcessRunner.find("vim") != nil))
+    func pluginsAddedByTheVimrcAreNotYours() throws {
+        // Like vim-plug: the vimrc adds a plugin folder to the runtimepath.
+        let folder = try TemporaryFolder()
+        let plugin = folder.url.appending(path: "surround/plugin")
+        try FileManager.default.createDirectory(at: plugin, withIntermediateDirectories: true)
+        try "nnoremap ys :echo 'surround'<CR>\n".write(to: plugin.appending(path: "surround.vim"), atomically: true, encoding: .utf8)
+        let vimrc = folder.url.appending(path: "vimrc")
+        try "set rtp+=\(folder.url.appending(path: "surround").path)\nnnoremap <Space>w :w<CR>\n"
+            .write(to: vimrc, atomically: true, encoding: .utf8)
+
+        let vim = try #require(ProcessRunner.find("vim"))
+        let lists = try #require(VimBindings.readLists(vim: vim, vimrc: vimrc))
+        let yours = Set(lists.user).subtracting(lists.defaults).map(\.lhs)
+        #expect(yours == ["<Space>w"])
+    }
+}
+
 struct HerdrTests {
     // The shape `herdr --default-config` prints: every setting commented out.
     let defaults = HerdrBindings.parse(HerdrBindings.uncommented(#"""
