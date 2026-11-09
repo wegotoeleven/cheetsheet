@@ -18,6 +18,8 @@ final class SheetStore {
     /// Goes up each time live bindings are re-read, so the overlay knows to redraw.
     @ObservationIgnored private(set) var liveGeneration = 0
     @ObservationIgnored private var liveRefresh: Task<Void, Never>?
+    /// Goes up each time the sheets are reloaded, so a refresh can tell its sheets went stale.
+    @ObservationIgnored private var sheetsVersion = 0
 
     /// The file each of your sheets came from, by sheet ID.
     private(set) var userSheetFiles: [String: URL] = [:]
@@ -67,6 +69,7 @@ final class SheetStore {
         userSheetFiles = files
         builtInIDs = Set(builtIn.map(\.id))
         loadErrors = errors
+        sheetsVersion += 1
         lastLiveRefresh = .distantPast  // a changed tmux sheet should be re-checked
     }
 
@@ -76,6 +79,7 @@ final class SheetStore {
         if let liveRefresh { return await liveRefresh.value }
         guard Date().timeIntervalSince(lastLiveRefresh) > 5 else { return }
         let tmux = sheet(id: "tmux"), vim = sheet(id: "vim"), herdr = sheet(id: "herdr")
+        let version = sheetsVersion
         let task = Task {
             // Task.detached runs the programs off the main thread so the UI never waits on them;
             // `async let` runs tmux and the app configs at the same time.
@@ -89,7 +93,9 @@ final class SheetStore {
             live["vim"] = await vimBindings
             live["herdr"] = await herdrBindings
             appConfigs = await configs
-            lastLiveRefresh = Date()
+            // If the sheets were reloaded meanwhile, these results used the old ones, so
+            // don't count this refresh: the next caller does a fresh one straight away.
+            if sheetsVersion == version { lastLiveRefresh = Date() }
             liveGeneration += 1
         }
         liveRefresh = task
