@@ -71,6 +71,7 @@ struct HerdrTests {
     # Prefix key to enter prefix mode (default: "ctrl+b")
     # prefix = "ctrl+b"
     # next_tab = "prefix+n"
+    # new_workspace = "prefix+shift+n"
     # split_vertical = "prefix+v"
     # split_horizontal = "prefix+minus"
     # close_pane = "prefix+x"
@@ -142,6 +143,19 @@ struct HerdrTests {
         live = try resolve("[keys]\n[[keys.command]]\nkey = \"prefix+v\"\ncommand = \"lazygit\"")
         #expect(live.overrides["split_vertical"]?.note == "Key now runs lazygit")
         #expect(live.overrides["split_vertical"]?.defaultStillWorks == false)
+
+        // "prefix+N" is the same key as the default "prefix+shift+n".
+        live = try resolve("[keys]\nsplit_vertical = \"Prefix+N\"")
+        #expect(live.overrides["new_workspace"]?.note == "Key now runs Split vertical")
+        #expect(live.overrides["split_vertical"]?.keys == ["⌃b", "N"])
+    }
+
+    @Test func keySpellingsAreNormalised() {
+        #expect(HerdrBindings.normalised("prefix+N") == "prefix+shift+n")
+        #expect(HerdrBindings.normalised("Shift+Ctrl+A") == "ctrl+shift+a")
+        #expect(HerdrBindings.normalised("cmd++") == "super+plus")
+        #expect(HerdrBindings.normalised("option+Return") == "alt+enter")
+        #expect(HerdrBindings.normalised("1..9") == "1..9")
     }
 
     @Test func sheetActionsWithoutAPrintedDefaultAreListed() throws {

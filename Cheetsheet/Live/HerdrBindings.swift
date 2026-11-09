@@ -144,9 +144,9 @@ nonisolated enum HerdrBindings {
             let values = strings(in: String(assignment[assignment.index(after: equals)...]))
 
             if table == "keys" {
-                keys.actions[name == "fullscreen" ? "zoom" : name] = values.filter { !$0.isEmpty }
+                keys.actions[name == "fullscreen" ? "zoom" : name] = values.filter { !$0.isEmpty }.map(normalised)
             } else if !keys.commands.isEmpty {
-                let value = values.first
+                let value = name == "key" ? values.first.map(normalised) : values.first
                 switch name {
                 case "key": keys.commands[keys.commands.count - 1].key = value
                 case "command": keys.commands[keys.commands.count - 1].command = value
@@ -205,6 +205,24 @@ nonisolated enum HerdrBindings {
         "ampersand": "&", "backtick": "`", "semicolon": ";", "equal": "=", "equals": "=",
         "1..9": "1–9",
     ]
+
+    private static let modifierAliases = ["control": "ctrl", "option": "alt", "cmd": "super"]
+    private static let keyAliases = ["return": "enter", "escape": "esc", "equals": "equal"]
+    private static let modifierOrder = ["prefix", "ctrl", "alt", "shift", "super"]
+
+    /// One spelling per key, so the same binding written two ways compares equal:
+    /// "Prefix+N" and "prefix+shift+n" both become "prefix+shift+n".
+    static func normalised(_ key: String) -> String {
+        var parts = key.split(separator: "+", omittingEmptySubsequences: false).map(String.init)
+        if key.hasSuffix("+") && parts.count >= 2 { parts.removeLast(2); parts.append("plus") }
+        guard let last = parts.popLast(), !last.isEmpty else { return key }
+        var modifiers = Set(parts.map { modifierAliases[$0.lowercased()] ?? $0.lowercased() })
+        // A capital letter is the shifted letter.
+        if last.count == 1, last.first?.isUppercase == true { modifiers.insert("shift") }
+        let base = keyAliases[last.lowercased()] ?? last.lowercased()
+        let ordered = modifierOrder.filter(modifiers.contains) + modifiers.subtracting(modifierOrder).sorted()
+        return (ordered + [base]).joined(separator: "+")
+    }
 
     /// Turns herdr's key syntax into one keycap: "ctrl+a" → "⌃a", "shift+n" → "N",
     /// "shift+tab" → "⇧⇥". A trailing "+" is the plus key itself.
