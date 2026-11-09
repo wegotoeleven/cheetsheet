@@ -137,6 +137,11 @@ struct HerdrTests {
         live = try resolve("[keys]\nsplit_vertical = \"prefix+n\"")
         #expect(live.overrides["next_tab"]?.note == "Key now runs Split vertical")
         #expect(live.overrides["split_vertical"]?.keys == ["⌃b", "n"])
+
+        // A custom command on a default key takes it too.
+        live = try resolve("[keys]\n[[keys.command]]\nkey = \"prefix+v\"\ncommand = \"lazygit\"")
+        #expect(live.overrides["split_vertical"]?.note == "Key now runs lazygit")
+        #expect(live.overrides["split_vertical"]?.defaultStillWorks == false)
     }
 
     @Test func sheetActionsWithoutAPrintedDefaultAreListed() throws {

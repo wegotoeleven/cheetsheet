@@ -51,6 +51,10 @@ nonisolated enum HerdrBindings {
         /// drops the default that had it.
         let takenBy = Dictionary(mine.flatMap { action, keys in keys.map { ($0, action) } },
                                  uniquingKeysWith: { first, _ in first })
+        /// Which of your custom commands uses a key, by the name shown for it.
+        let commandOn = Dictionary(user.commands.compactMap { command in
+            command.key.map { ($0, commandTitle(command)) }
+        }, uniquingKeysWith: { first, _ in first })
         // Sheet entries herdr prints a default for. Some it doesn't (swap_pane_* and copy_mode in
         // 0.9.5), so your keys for those can't be compared and are listed as your bindings instead.
         let onSheet = Set(sheet.sections.flatMap(\.entries).map(\.action))
@@ -60,14 +64,14 @@ nonisolated enum HerdrBindings {
         for action in onSheet {
             guard let defaultKey = defaults.actions[action]?.first else { continue }
             let current = mine[action] ?? defaults.actions[action] ?? []
-            let thief = takenBy[defaultKey].flatMap { $0 == action ? nil : $0 }
+            let thief = takenBy[defaultKey].flatMap { $0 == action ? nil : title($0) } ?? commandOn[defaultKey]
             let stillWorks = current.contains(defaultKey) && thief == nil
             let added = mine[action]?.first { $0 != defaultKey }
             if stillWorks && added == nil { continue }
 
             let note: String? = switch (stillWorks, added, thief) {
             case (true, _, _), (_, .some, _): nil
-            case (false, nil, .some(let other)): "Key now runs \(title(other))"
+            case (false, nil, .some(let other)): "Key now runs \(other)"
             case (false, nil, nil): "Unbound"
             }
             overrides[action] = .init(keys: added.map(caps), defaultStillWorks: stillWorks, note: note)
@@ -78,11 +82,16 @@ nonisolated enum HerdrBindings {
             .sorted { $0.key < $1.key }
             .flatMap { action, keys in keys.map { MenuShortcut(title: title(action), keys: caps($0)) } }
         let commands = user.commands.compactMap { command in
-            command.key.map { MenuShortcut(title: command.description ?? command.command ?? "Command", keys: caps($0)) }
+            command.key.map { MenuShortcut(title: commandTitle(command), keys: caps($0)) }
         }
 
         return LiveBindings(prefix: prefixCap == sheet.prefix ? nil : prefixCap,
                             overrides: overrides, extras: actions + commands, source: source)
+    }
+
+    /// A custom command's name: its description, else the command itself.
+    static func commandTitle(_ command: Command) -> String {
+        command.description ?? command.command ?? "Command"
     }
 
     /// "split_vertical" → "Split vertical".
