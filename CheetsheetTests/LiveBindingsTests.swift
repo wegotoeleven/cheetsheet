@@ -150,6 +150,23 @@ struct HerdrTests {
         #expect(live.overrides["split_vertical"]?.keys == ["⌃b", "N"])
     }
 
+    @Test func bracketKeysDontEndAnArray() {
+        let keys = HerdrBindings.parse(#"""
+        [keys]
+        next_tab = [ "prefix+]",
+          "prefix+n",
+        ]
+        previous_tab = [
+          "prefix+[",
+          "prefix+p",
+        ]
+        close_pane = "prefix+x"
+        """#)
+        #expect(keys.actions["next_tab"] == ["prefix+]", "prefix+n"])
+        #expect(keys.actions["previous_tab"] == ["prefix+[", "prefix+p"])
+        #expect(keys.actions["close_pane"] == ["prefix+x"])
+    }
+
     @Test func keySpellingsAreNormalised() {
         #expect(HerdrBindings.normalised("prefix+N") == "prefix+shift+n")
         #expect(HerdrBindings.normalised("Shift+Ctrl+A") == "ctrl+shift+a")

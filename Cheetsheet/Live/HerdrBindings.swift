@@ -125,14 +125,14 @@ nonisolated enum HerdrBindings {
             let line = stripComment(String(rawLine)).trimmingCharacters(in: .whitespaces)
             if !pending.isEmpty {
                 pending += " " + line
-                guard line.contains("]") else { continue }
+                guard openBrackets(pending) <= 0 else { continue }
             } else if line.hasPrefix("[") && !line.contains("=") {
                 table = line.trimmingCharacters(in: CharacterSet(charactersIn: "[] \t"))
                 if table == "keys.command" && line.hasPrefix("[[") { keys.commands.append(Command()) }
                 continue
             } else if table == "keys" || table == "keys.command" {
-                if line.range(of: #"=\s*\[[^\]]*$"#, options: .regularExpression) != nil { pending = line; continue }
                 pending = line
+                if line.contains("=") && openBrackets(line) > 0 { continue }
             } else {
                 continue
             }
@@ -176,6 +176,28 @@ nonisolated enum HerdrBindings {
             }
         }
         return result
+    }
+
+    /// How many `[` are still open, ignoring any inside quotes, so a key such as
+    /// "prefix+]" doesn't end an array early.
+    private static func openBrackets(_ text: String) -> Int {
+        var depth = 0
+        var quote: Character?
+        var escaped = false
+        for character in text {
+            if let open = quote {
+                if escaped { escaped = false }
+                else if character == "\\" && open == "\"" { escaped = true }
+                else if character == open { quote = nil }
+            } else if character == "\"" || character == "'" {
+                quote = character
+            } else if character == "[" {
+                depth += 1
+            } else if character == "]" {
+                depth -= 1
+            }
+        }
+        return depth
     }
 
     /// Drops a trailing `# comment`, leaving any # inside quotes alone.
