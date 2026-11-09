@@ -96,6 +96,7 @@ struct HerdrTests {
     # close_pane = "prefix+x"
     # last_pane = ""          # optional, unset by default
     # [[keys.command]]
+    # type = "shell" runs detached in the background.
     # key = "prefix+alt+g"
     # command = "lazygit"
     """#))
@@ -109,6 +110,9 @@ struct HerdrTests {
         #expect(defaults.actions["prefix"] == ["ctrl+b"])
         #expect(defaults.actions["split_horizontal"] == ["prefix+minus"])
         #expect(defaults.actions["last_pane"] == [])
+        // Prose that starts like a setting stays a comment.
+        #expect(defaults.actions["type"] == nil)
+        #expect(defaults.commands.count == 1)
     }
 
     @Test func prefixAddedKeysAndExtras() throws {

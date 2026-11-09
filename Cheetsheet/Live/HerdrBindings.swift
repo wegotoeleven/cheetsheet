@@ -109,16 +109,22 @@ nonisolated enum HerdrBindings {
     // MARK: - Parsing
 
     /// `herdr --default-config` comments every setting out; this puts them back so the
-    /// same parser reads both files. Prose comments don't look like `name = value`, so
-    /// they're skipped either way.
+    /// same parser reads both files. Only a comment that is wholly a setting or a table
+    /// header is uncommented, so prose such as `# type = "shell" runs detached…` stays prose.
     static func uncommented(_ text: String) -> String {
         text.split(separator: "\n", omittingEmptySubsequences: false)
             .map { line in
                 let trimmed = line.drop { $0 == " " || $0 == "\t" }
-                return trimmed.hasPrefix("#") ? String(trimmed.drop { $0 == "#" || $0 == " " }) : String(line)
+                guard trimmed.hasPrefix("#") else { return String(line) }
+                let content = String(trimmed.drop { $0 == "#" || $0 == " " })
+                let isSetting = content.range(of: settingLine, options: .regularExpression) != nil
+                return isSetting ? content : String(line)
             }
             .joined(separator: "\n")
     }
+
+    /// `name = value` with nothing after the value but a comment, or `[table]` / `[[table]]`.
+    private static let settingLine = #"^([A-Za-z0-9_-]+\s*=\s*("([^"\\]|\\.)*"|'[^']*'|\[.*\]|true|false|-?[0-9][0-9._]*)|\[\[?[A-Za-z0-9_.-]+\]\]?)\s*(#.*)?$"#
 
     /// Reads just enough TOML for herdr's `[keys]` table: strings and arrays of strings,
     /// including arrays that span several lines.
