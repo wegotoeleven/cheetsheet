@@ -39,7 +39,7 @@ nonisolated enum TmuxBindings {
         guard let tmux = executable() else { return nil }
         // `-f /dev/null` skips every config file, so this is tmux's pure defaults.
         // `-L` uses a private socket, so the user's own server is never touched.
-        guard let defaults = run(tmux, ["-f", "/dev/null", "-L", "cheetsheet-defaults", "start-server", ";", "list-keys"])
+        guard let defaults = run(tmux, ["-f", "/dev/null", "-L", "cheetsheet-defaults", "start-server", ";", "list-keys", ";", "kill-server"])
         else { return nil }
 
         // Several tmux commands in one call, separated by ";" as on tmux's command line.
@@ -50,8 +50,11 @@ nonisolated enum TmuxBindings {
         if let live = run(tmux, query), !parse(live).isEmpty {
             return resolve(sheet: sheet, defaults: defaults, user: live, source: "running tmux server")
         }
-        // No server running: start a throwaway one that loads the user's config, then exits.
-        if let config = run(tmux, ["-L", "cheetsheet-config", "start-server", ";"] + query), !parse(config).isEmpty {
+        // No server running: start a throwaway one that loads the user's config, then stop it.
+        // A config that creates or restores sessions would otherwise keep it running, and later
+        // refreshes would read the config it loaded first instead of your current one.
+        if let config = run(tmux, ["-L", "cheetsheet-config", "start-server", ";"] + query + [";", "kill-server"]),
+           !parse(config).isEmpty {
             return resolve(sheet: sheet, defaults: defaults, user: config, source: "tmux config")
         }
         return nil
