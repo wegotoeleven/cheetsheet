@@ -29,19 +29,44 @@ nonisolated enum ProcessRunner {
         process.standardInput = FileHandle.nullDevice
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
-        do { try process.run() } catch { return nil }
 
-        // Stop it if it runs too long. Terminating closes its end of the pipe,
-        // so the read below finishes either way.
-        let timer = DispatchWorkItem { if process.isRunning { process.terminate() } }
-        DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: timer)
-        // Read everything before waiting: a full pipe would otherwise block the program forever.
-        let data = output.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        timer.cancel()
+        // Output is collected as it arrives, so a full pipe never blocks the program, and the
+        // wait below has a deadline. A blocking read could wait forever: it only ends once
+        // every process holding the pipe has gone, including anything the program started.
+        let data = Mutex(Data())
+        let readAll = DispatchSemaphore(value: 0)
+        let exited = DispatchSemaphore(value: 0)
+        let reader = output.fileHandleForReading
+        reader.readabilityHandler = { handle in
+            let chunk = handle.availableData
+            if chunk.isEmpty {
+                handle.readabilityHandler = nil
+                readAll.signal()
+            } else {
+                data.withLock { $0.append(chunk) }
+            }
+        }
+        process.terminationHandler = { _ in exited.signal() }
+        do { try process.run() } catch {
+            reader.readabilityHandler = nil
+            return nil
+        }
+
+        let deadline = DispatchTime.now() + timeout
+        guard exited.wait(timeout: deadline) == .success, readAll.wait(timeout: deadline) == .success else {
+            // Too slow: stop listening, ask it to quit, and force it a second later.
+            reader.readabilityHandler = nil
+            try? reader.close()
+            let pid = process.processIdentifier
+            if process.isRunning { process.terminate() }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 1) {
+                if process.isRunning { kill(pid, SIGKILL) }
+            }
+            return nil
+        }
 
         guard process.terminationReason == .exit, process.terminationStatus == 0 || !requireSuccess else { return nil }
-        return String(decoding: data, as: UTF8.self)
+        return String(decoding: data.withLock { $0 }, as: UTF8.self)
     }
 
     /// The modification dates of some files, for telling whether a config changed.

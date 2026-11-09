@@ -20,6 +20,19 @@ struct ProcessRunnerTests {
         #expect(Date().timeIntervalSince(start) < 3)
     }
 
+    @Test func stopsWhenABackgroundProcessKeepsTheOutputOpen() {
+        // The shell exits at once, but the sleep it leaves behind still holds the pipe.
+        let start = Date()
+        #expect(ProcessRunner.run("/bin/sh", ["-c", "sleep 10 & echo started"], timeout: 0.5) == nil)
+        #expect(Date().timeIntervalSince(start) < 3)
+    }
+
+    @Test func returnsLargeOutput() {
+        // More than a pipe holds, so it must be read while the program runs.
+        let output = ProcessRunner.run("/bin/sh", ["-c", "yes cheetsheet | head -n 100000"])
+        #expect(output?.count == 100_000 * 11)
+    }
+
     @Test func passesEnvironment() {
         #expect(ProcessRunner.run("/bin/sh", ["-c", "printf %s \"$CHEETSHEET_TEST\""],
                                   environment: ["CHEETSHEET_TEST": "yes"]) == "yes")
