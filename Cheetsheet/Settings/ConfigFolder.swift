@@ -21,8 +21,14 @@ nonisolated enum ConfigFolder {
 
     /// "~/.config/cheetsheet" rather than the full path.
     static func tildePath(_ url: URL) -> String {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        return url.path.hasPrefix(home) ? "~" + url.path.dropFirst(home.count) : url.path
+        tildePath(url.path, home: FileManager.default.homeDirectoryForCurrentUser.path)
+    }
+
+    /// Only a path inside `home` is shortened: /Users/bobby isn't inside /Users/bob.
+    static func tildePath(_ path: String, home: String) -> String {
+        let home = home.hasSuffix("/") ? String(home.dropLast()) : home
+        guard path == home || path.hasPrefix(home + "/") else { return path }
+        return "~" + path.dropFirst(home.count)
     }
 }
 

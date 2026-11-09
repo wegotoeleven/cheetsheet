@@ -46,6 +46,14 @@ final class TemporaryFolder {
     deinit { try? FileManager.default.removeItem(at: url) }
 }
 
+struct TildePathTests {
+    @Test func shortensOnlyPathsInsideHome() {
+        #expect(ConfigFolder.tildePath("/Users/bob/.vimrc", home: "/Users/bob") == "~/.vimrc")
+        #expect(ConfigFolder.tildePath("/Users/bob", home: "/Users/bob/") == "~")
+        #expect(ConfigFolder.tildePath("/Users/bobby/dotfiles/vimrc", home: "/Users/bob") == "/Users/bobby/dotfiles/vimrc")
+    }
+}
+
 struct ConfigCacheTests {
     @Test func recomputesOnlyWhenTheFileChanges() throws {
         let folder = try TemporaryFolder()
