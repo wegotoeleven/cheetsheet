@@ -41,8 +41,11 @@ final class ModifierHoldMonitor {
                 if flags.isEmpty { spoiled = false }
                 endHold()
             }
-        } else if holdTimer != nil || isShowing {
-            // Any key or click while holding means the user wanted a shortcut, not the overlay.
+        } else if holdTimer != nil || isShowing
+                    || !event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty {
+            // Any key or click while a modifier is down means the user wanted a shortcut, not the
+            // overlay. That includes ⌘⇧4 with ⌘ as the trigger: letting go of ⇧ first must not
+            // then start a fresh hold of ⌘.
             spoiled = true
             endHold()
         }
