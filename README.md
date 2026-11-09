@@ -106,7 +106,7 @@ When a binding differs from the default, the overlay shows a legend:
 
 ### Detecting tmux, herdr and Vim in a terminal
 
-Cheetsheet reads the terminal window's title, so tmux, herdr and Vim need to put their names in it. Settings → Terminals checks your config files and can add the lines for you. For herdr, it puts `window_title` in your existing `[ui]` table, or adds one. If you already set `window_title`, it leaves the file alone and you edit that line yourself. After adding the lines, restart Vim, run `tmux source-file ~/.tmux.conf`, and run `herdr server reload-config`. To add them yourself:
+Cheetsheet reads the terminal window's title, so tmux, herdr and Vim need to put their names in it. Settings → Terminals checks your config files and can add the lines for you. If you already set tmux's `set-titles-string` or herdr's `window_title`, it adds ` — tmux` or ` — herdr` to the end of it and keeps your format. Otherwise, for herdr, it puts `window_title` in your existing `[ui]` table, or adds one. It leaves the file for you to edit by hand when it can't change it safely, such as a multi-line string or a `ui` table written as `ui = { ... }`. After adding the lines, restart Vim, run `tmux source-file ~/.tmux.conf`, and run `herdr server reload-config`. To add them yourself:
 
 ```sh
 # ~/.tmux.conf

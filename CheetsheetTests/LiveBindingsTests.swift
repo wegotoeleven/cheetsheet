@@ -221,25 +221,49 @@ struct HerdrTests {
 
 struct TerminalConfigTests {
     let herdr = TerminalConfig.all.first { $0.id == "herdr" }!
-    var lines: String { herdr.lines("toml") }
+    let tmux = TerminalConfig.all.first { $0.id == "tmux" }!
+
+    func herdrChange(_ text: String) -> String? { herdr.change(text, herdr.lines("toml"))?.updated }
+    func tmuxChange(_ text: String) -> String? { tmux.change(text, tmux.lines("conf"))?.updated }
 
     @Test func herdrLinesGoIntoTheUITable() throws {
-        let text = "[ui]\nsidebar_width = 30\n"
-        let (index, insert) = try #require(herdr.place(text, lines))
-        var updated = text
-        updated.insert(contentsOf: insert, at: index)
+        let updated = try #require(herdrChange("[ui]\nsidebar_width = 30\n"))
         #expect(updated.hasPrefix("[ui]\n# Added by Cheetsheet"))
         #expect(updated.contains("— herdr\"\nsidebar_width = 30\n"))
     }
 
     @Test func herdrLinesAddAUITableWhenThereIsNone() throws {
         let text = "[ui.toast]\ndelivery = \"system\""
-        let (index, insert) = try #require(herdr.place(text, lines))
-        #expect(index == text.endIndex && insert.hasPrefix("\n\n[ui]\n"))
+        let updated = try #require(herdrChange(text))
+        #expect(updated.hasPrefix(text + "\n\n[ui]\n"))
     }
 
-    @Test func existingWindowTitleIsLeftAlone() {
-        #expect(herdr.place("[ui]\nwindow_title = \"{workspace}\"\n", lines) == nil)
+    @Test func herdrExistingWindowTitleGetsHerdrAdded() {
+        #expect(herdrChange("[ui]\nwindow_title = \"{workspace}\"  # mine\n")
+                == "[ui]\nwindow_title = \"{workspace} — herdr\"  # mine\n")
+        #expect(herdrChange("[ui]\nwindow_title = '{workspace}'\n") == "[ui]\nwindow_title = '{workspace} — herdr'\n")
+        // A multi-line string is left for you to edit.
+        #expect(herdrChange("[ui]\nwindow_title = \"\"\"\n{workspace}\n\"\"\"\n") == nil)
+    }
+
+    @Test func herdrUITableWithoutAHeaderIsLeftAlone() {
+        // Adding a [ui] header here would define the table twice and break the file.
+        #expect(herdrChange("ui = { sidebar_width = 30 }\n") == nil)
+        #expect(herdrChange("ui.sidebar_width = 30\n") == nil)
+    }
+
+    @Test func tmuxLinesAreAddedWhenThereAreNone() {
+        #expect(tmuxChange("set -g mouse on\n") == "set -g mouse on\n" + tmux.lines("conf"))
+    }
+
+    @Test func tmuxExistingTitleKeepsItsFormat() throws {
+        let updated = try #require(tmuxChange("set -g set-titles on\nset -g set-titles-string \"#S: #W\"\n"))
+        #expect(updated == "set -g set-titles on\nset -g set-titles-string \"#S: #W — tmux\"\n")
+
+        // set-titles on is added at the end, after any "off".
+        let both = try #require(tmuxChange("set -g set-titles-string '#W'\nset -g set-titles off\n"))
+        #expect(both.hasPrefix("set -g set-titles-string '#W — tmux'\nset -g set-titles off\n"))
+        #expect(both.hasSuffix("set -g set-titles on\n"))
     }
 }
 

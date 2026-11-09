@@ -160,13 +160,13 @@ struct SettingsView: View {
         }
         .onDisappear { AppSettings.windowClosed() }
         .confirmationDialog(
-            "Add lines to \(pendingAppend.flatMap(\.resolved).map(ConfigFolder.tildePath) ?? "")?",
+            "Update \(pendingAppend.flatMap(\.resolved).map(ConfigFolder.tildePath) ?? "")?",
             isPresented: Binding(get: { pendingAppend != nil }, set: { if !$0 { pendingAppend = nil } }),
             presenting: pendingAppend
         ) { status in
-            Button("Add lines") { append(status) }
+            Button("Update File") { append(status) }
         } message: { status in
-            Text("These lines will be added to the file:\n\(status.linesToAdd ?? "")")
+            Text(status.changeSummary ?? "")
         }
         .alert("Couldn't update the file", isPresented: Binding(get: { appendError != nil }, set: { if !$0 { appendError = nil } })) {
             Button("OK") {}
@@ -191,8 +191,8 @@ struct SettingsView: View {
             if status.isConfigured {
                 Label("Set up", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
-            } else if status.linesToAdd != nil {
-                Button("Add lines…") { pendingAppend = status }
+            } else if status.changeSummary != nil {
+                Button("Set Up…") { pendingAppend = status }
             } else if status.url != nil {
                 Text("Edit by hand").foregroundStyle(.secondary)
             }
@@ -211,7 +211,7 @@ struct SettingsView: View {
 
     private func append(_ status: TerminalConfig.Status) {
         do {
-            try TerminalConfig.append(status)
+            try TerminalConfig.apply(status)
         } catch {
             appendError = error.localizedDescription
         }
