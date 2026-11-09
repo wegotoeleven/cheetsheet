@@ -158,6 +158,10 @@ struct HerdrTests {
         #expect(live.overrides["next_tab"]?.note == "Key now runs Split vertical")
         #expect(live.overrides["split_vertical"]?.keys == ["⌃b", "n"])
 
+        // Two of yours on one key: always the same one is named.
+        live = try resolve("[keys]\nsplit_vertical = \"prefix+n\"\nlast_pane = \"prefix+n\"")
+        #expect(live.overrides["next_tab"]?.note == "Key now runs Last pane")
+
         // A custom command on a default key takes it too.
         live = try resolve("[keys]\n[[keys.command]]\nkey = \"prefix+v\"\ncommand = \"lazygit\"")
         #expect(live.overrides["split_vertical"]?.note == "Key now runs lazygit")

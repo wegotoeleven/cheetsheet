@@ -48,8 +48,9 @@ nonisolated enum HerdrBindings {
 
         let mine = user.actions.filter { $0.key != "prefix" && $0.value != defaults.actions[$0.key] }
         /// Which of your actions now uses a key. herdr gives your binding the key and
-        /// drops the default that had it.
-        let takenBy = Dictionary(mine.flatMap { action, keys in keys.map { ($0, action) } },
+        /// drops the default that had it. Sorted, so if two of yours share a key the same
+        /// one is named every time (a dictionary's order changes from run to run).
+        let takenBy = Dictionary(mine.sorted { $0.key < $1.key }.flatMap { action, keys in keys.map { ($0, action) } },
                                  uniquingKeysWith: { first, _ in first })
         /// Which of your custom commands uses a key, by the name shown for it.
         let commandOn = Dictionary(user.commands.compactMap { command in
