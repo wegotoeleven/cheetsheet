@@ -103,6 +103,21 @@ struct FolderWatcherTests {
         withExtendedLifetime(watcher) {}
     }
 
+    @Test func seesFilesWrittenInPlace() async throws {
+        // Writing into the existing file (not replacing it) doesn't change the folder.
+        let folder = try TemporaryFolder()
+        let file = folder.url.appending(path: "config.json")
+        try "{}".write(to: file, atomically: true, encoding: .utf8)
+        var changes = 0
+        let watcher = FolderWatcher(folder.url) { changes += 1 }
+        let handle = try FileHandle(forWritingTo: file)
+        try handle.truncate(atOffset: 0)
+        try handle.write(contentsOf: Data(#"{"holdDelay": 1}"#.utf8))
+        try handle.close()
+        #expect(await eventually { changes > 0 })
+        withExtendedLifetime(watcher) {}
+    }
+
     @Test func keepsWatchingAfterTheFolderIsReplaced() async throws {
         let parent = try TemporaryFolder()
         let folder = parent.url.appending(path: "cheetsheet")

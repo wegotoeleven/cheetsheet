@@ -29,7 +29,9 @@ nonisolated enum ConfigFolder {
 /// Calls `onChange` when anything in a folder changes, e.g. a sheet saved in a text editor.
 ///
 /// Uses kernel file-system event sources (kqueue). Editors usually save by writing a new
-/// file and renaming it over the old one, which shows up as a change to its folder.
+/// file and renaming it over the old one, which shows up as a change to its folder. Some
+/// write into the existing file instead (Vim does for a symlinked file), which only the
+/// file itself sees, so each file is watched too.
 ///
 /// Dotfile managers like GNU Stow make each file a symlink into a repo, and an edit there
 /// doesn't touch this folder, so the folders those links point into are watched too. After
@@ -50,16 +52,20 @@ final class FolderWatcher {
     // The retry timer holds only a weak reference, so it needs no cleanup here.
     deinit { sources.forEach { $0.cancel() } }
 
-    /// The folder, plus every folder that a symlink in it points into.
-    private var foldersToWatch: Set<String> {
+    /// The folder, every folder that a symlink in it points into, and every file in it
+    /// (the real file, for a symlink).
+    private var pathsToWatch: Set<String> {
         let folder = url.resolvingSymlinksInPath()
-        var folders: Set<String> = [folder.path]
+        var paths: Set<String> = [folder.path]
         let items = (try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)) ?? []
         for item in items {
             let target = item.resolvingSymlinksInPath()
-            if target.path != item.path { folders.insert(target.deletingLastPathComponent().path) }
+            if target.path != item.path { paths.insert(target.deletingLastPathComponent().path) }
+            if (try? target.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true {
+                paths.insert(target.path)
+            }
         }
-        return folders
+        return paths
     }
 
     private func watch() {
@@ -67,8 +73,8 @@ final class FolderWatcher {
         sources = []
         retry?.invalidate()
         retry = nil
-        for path in foldersToWatch {
-            // O_EVTONLY opens the folder only to watch it, so it never blocks unmounting.
+        for path in pathsToWatch {
+            // O_EVTONLY opens the file or folder only to watch it, so it never blocks unmounting.
             let descriptor = open(path, O_EVTONLY)
             guard descriptor >= 0 else { continue }
             let source = DispatchSource.makeFileSystemObjectSource(
