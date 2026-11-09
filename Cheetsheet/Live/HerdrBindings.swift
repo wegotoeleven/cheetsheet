@@ -61,12 +61,17 @@ nonisolated enum HerdrBindings {
             .filter { defaults.actions[$0]?.first != nil }
 
         var overrides: [String: LiveBindings.Override] = [:]
-        for action in onSheet {
+        /// Keys you added for a sheet action beyond the first, which the override can't show.
+        var moreKeys: [MenuShortcut] = []
+        for entry in sheet.sections.flatMap(\.entries) where onSheet.contains(entry.action) {
+            let action = entry.action
             guard let defaultKey = defaults.actions[action]?.first else { continue }
             let current = mine[action] ?? defaults.actions[action] ?? []
             let thief = takenBy[defaultKey].flatMap { $0 == action ? nil : title($0) } ?? commandOn[defaultKey]
             let stillWorks = current.contains(defaultKey) && thief == nil
-            let added = mine[action]?.first { $0 != defaultKey }
+            let addedKeys = mine[action]?.filter { $0 != defaultKey } ?? []
+            let added = addedKeys.first
+            moreKeys += addedKeys.dropFirst().map { MenuShortcut(title: entry.description, keys: caps($0)) }
             if stillWorks && added == nil { continue }
 
             let note: String? = switch (stillWorks, added, thief) {
@@ -86,7 +91,7 @@ nonisolated enum HerdrBindings {
         }
 
         return LiveBindings(prefix: prefixCap == sheet.prefix ? nil : prefixCap,
-                            overrides: overrides, extras: actions + commands, source: source)
+                            overrides: overrides, extras: moreKeys + actions + commands, source: source)
     }
 
     /// A custom command's name: its description, else the command itself.

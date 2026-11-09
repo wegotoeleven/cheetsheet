@@ -194,6 +194,16 @@ struct HerdrTests {
         #expect(HerdrBindings.normalised("1..9") == "1..9")
     }
 
+    @Test func everyAddedKeyIsShown() throws {
+        let live = try resolve(#"""
+        [keys]
+        split_horizontal = ["prefix+minus", "prefix+shift+minus", "prefix+backslash"]
+        """#)
+        #expect(live.overrides["split_horizontal"]?.keys == ["⌃b", "⇧-"])
+        #expect(live.extras.map(\.title) == ["Split top and bottom"])
+        #expect(live.extras.map(\.keys) == [["⌃b", "\\"]])
+    }
+
     @Test func sheetActionsWithoutAPrintedDefaultAreListed() throws {
         // herdr 0.9.5 doesn't print copy_mode's default, so there's nothing to compare with.
         let live = try resolve("[keys]\ncopy_mode = \"prefix+y\"")
