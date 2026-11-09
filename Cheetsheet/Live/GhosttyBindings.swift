@@ -96,12 +96,13 @@ nonisolated enum GhosttyBindings {
         (["shift"], "⇧"), (["super", "cmd", "command"], "⌘"),
     ]
 
+    /// The symbols MenuReader uses, so a binding that's also on a menu is recognised as the same.
     private static let keyNames: [String: String] = [
         "arrow_up": "↑", "arrow_down": "↓", "arrow_left": "←", "arrow_right": "→",
         "up": "↑", "down": "↓", "left": "←", "right": "→",
-        "enter": "↩", "return": "↩", "escape": "esc", "tab": "⇥", "space": "space",
-        "backspace": "⌫", "delete": "⌦", "page_up": "pgup", "page_down": "pgdn",
-        "home": "home", "end": "end", "equal": "=", "minus": "-", "plus": "+",
+        "enter": "↩", "return": "↩", "escape": "⎋", "tab": "⇥", "space": "Space",
+        "backspace": "⌫", "delete": "⌦", "page_up": "⇞", "page_down": "⇟",
+        "home": "↖", "end": "↘", "equal": "=", "minus": "-", "plus": "+",
         "comma": ",", "period": ".", "slash": "/", "backslash": "\\", "semicolon": ";",
         "quote": "'", "grave_accent": "`", "bracket_left": "[", "bracket_right": "]",
     ]
@@ -120,7 +121,8 @@ nonisolated enum GhosttyBindings {
             let caps = modifiers.filter { !$0.names.isDisjoint(with: used) }.map(\.symbol)
             var label = keyNames[key] ?? key
             if label.hasPrefix("digit_") { label = String(label.dropFirst("digit_".count)) }
-            if label.count == 1 { label = label.uppercased() }
+            // Single letters and function keys (f5) are capitalised, as in menus.
+            if label.count == 1 || label.wholeMatch(of: /f\d{1,2}/) != nil { label = label.uppercased() }
             return caps + [label]
         }
     }

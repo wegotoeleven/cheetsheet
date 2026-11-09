@@ -303,6 +303,11 @@ struct GhosttyTests {
         #expect(GhosttyBindings.display("super++") == ["⌘", "+"])
         #expect(GhosttyBindings.display("global:ctrl+a>n") == ["⌃", "A", "N"])
         #expect(GhosttyBindings.display("super+digit_1") == ["⌘", "1"])
+        // The same symbols as menus, so menu shortcuts aren't listed twice.
+        #expect(GhosttyBindings.display("super+page_up") == ["⌘", "⇞"])
+        #expect(GhosttyBindings.display("escape") == ["⎋"])
+        #expect(GhosttyBindings.display("ctrl+space") == ["⌃", "Space"])
+        #expect(GhosttyBindings.display("super+f5") == ["⌘", "F5"])
         #expect(GhosttyBindings.describe(#"text:\x01"#) == "Start of line")
     }
 }
