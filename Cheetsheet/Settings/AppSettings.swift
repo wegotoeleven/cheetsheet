@@ -164,7 +164,7 @@ struct SettingsView: View {
         ) { status in
             Button("Add lines") { append(status) }
         } message: { status in
-            Text("These lines will be added to the end of the file:\n\(status.linesToAdd)")
+            Text("These lines will be added to the file:\n\(status.linesToAdd ?? "")")
         }
         .alert("Couldn't update the file", isPresented: Binding(get: { appendError != nil }, set: { if !$0 { appendError = nil } })) {
             Button("OK") {}
@@ -189,8 +189,10 @@ struct SettingsView: View {
             if status.isConfigured {
                 Label("Set up", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
-            } else if status.url != nil {
+            } else if status.linesToAdd != nil {
                 Button("Add lines…") { pendingAppend = status }
+            } else if status.url != nil {
+                Text("Edit by hand").foregroundStyle(.secondary)
             }
         }
     }
