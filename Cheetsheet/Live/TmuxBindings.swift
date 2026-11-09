@@ -33,14 +33,19 @@ nonisolated enum TmuxBindings {
         let command: String
     }
 
+    /// tmux's defaults only change when tmux is upgraded, so they're kept per binary
+    /// rather than starting a server for them every time the overlay opens.
+    private static let defaultsCache = ConfigCache<String>(maxAge: .infinity)
+
     /// Reads bindings from the running tmux server, or from the config file when
     /// no server is running. Returns nil when tmux isn't installed.
     static func load(for sheet: Cheatsheet) -> LiveBindings? {
         guard let tmux = executable() else { return nil }
         // `-f /dev/null` skips every config file, so this is tmux's pure defaults.
         // `-L` uses a private socket, so the user's own server is never touched.
-        guard let defaults = run(tmux, ["-f", "/dev/null", "-L", "cheetsheet-defaults", "start-server", ";", "list-keys", ";", "kill-server"])
-        else { return nil }
+        guard let defaults = defaultsCache.value(for: [URL(fileURLWithPath: tmux)], compute: {
+            run(tmux, ["-f", "/dev/null", "-L", "cheetsheet-defaults", "start-server", ";", "list-keys", ";", "kill-server"])
+        }) else { return nil }
 
         // Several tmux commands in one call, separated by ";" as on tmux's command line.
         let query = ["list-keys", ";", "show-options", "-g", "prefix", ";",
